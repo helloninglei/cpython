@@ -86,6 +86,12 @@ static void* _PyObject_Realloc(void *ctx, void *ptr, size_t size);
    library, whereas _Py_NewReference() requires it. */
 struct _PyTraceMalloc_Config _Py_tracemalloc_config = _PyTraceMalloc_Config_INIT;
 
+/*
+================================= 内存管理的第一层 =====================================
+======================================================================================
+函数 _PyMem_RawMalloc, _PyMem_RawCalloc, _PyMem_RawRealloc, _PyMem_RawFree 只是对c库中的
+malloc，calloc，realloc，free函数进行简单封装。
+*/
 
 static void *
 _PyMem_RawMalloc(void *ctx, size_t size)
@@ -93,7 +99,15 @@ _PyMem_RawMalloc(void *ctx, size_t size)
     /* PyMem_RawMalloc(0) means malloc(1). Some systems would return NULL
        for malloc(0), which would be treated as an error. Some platforms would
        return a pointer with no memory behind it, which would break pymalloc.
-       To solve these problems, allocate an extra byte. */
+       To solve these problems, allocate an extra byte. 
+
+    malloc: 
+        百度词条：https://baike.baidu.com/item/malloc%E5%87%BD%E6%95%B0/8582146?fromtitle=malloc&fromid=659960&fr=aladdin
+        malloc的全称是memory allocation，中文叫动态内存分配，用于申请一块连续的
+        指定大小的内存块区域以void*类型返回分配的内存区域地址，其作用是在内存的动态
+        存储区中分配一个长度为size的连续空间。此函数的返回值是分配区域的起始地址，或
+        者说，此函数是一个指针型函数，返回的指针指向该分配域的开头位置。
+    */
     if (size == 0)
         size = 1;
     return malloc(size);
@@ -105,7 +119,14 @@ _PyMem_RawCalloc(void *ctx, size_t nelem, size_t elsize)
     /* PyMem_RawCalloc(0, 0) means calloc(1, 1). Some systems would return NULL
        for calloc(0, 0), which would be treated as an error. Some platforms
        would return a pointer with no memory behind it, which would break
-       pymalloc.  To solve these problems, allocate an extra byte. */
+       pymalloc.  To solve these problems, allocate an extra byte. 
+
+    calloc:
+        百度词条：https://baike.baidu.com/item/calloc
+        在内存的动态存储区中分配nelem个长度为elsize的连续空间，函数返回一个指向分配起始地址的指针；
+        如果分配不成功，返回NULL。calloc在动态分配完内存后，自动初始化该内存空间为零，而malloc
+        不做初始化，分配到的空间中的数据是随机数据。
+    */
     if (nelem == 0 || elsize == 0) {
         nelem = 1;
         elsize = 1;
@@ -116,6 +137,14 @@ _PyMem_RawCalloc(void *ctx, size_t nelem, size_t elsize)
 static void *
 _PyMem_RawRealloc(void *ctx, void *ptr, size_t size)
 {
+    /* 
+    realloc:
+        百度词条：https://baike.baidu.com/item/realloc
+        先判断当前的指针是否有足够的连续空间，如果有，扩大mem_address指向的地址，并且将mem_address返回，
+        如果空间不够，先按照newsize指定的大小分配空间，将原有数据从头到尾拷贝到新分配的内存区域，而后释放
+        原来mem_address所指内存区域（注意：原来指针是自动释放，不需要使用free），同时返回新分配的内存区
+        域的首地址。即重新分配存储器块的地址。
+    */
     if (size == 0)
         size = 1;
     return realloc(ptr, size);
@@ -124,11 +153,16 @@ _PyMem_RawRealloc(void *ctx, void *ptr, size_t size)
 static void
 _PyMem_RawFree(void *ctx, void *ptr)
 {
+    /* 
+    free:
+        百度词条：https://baike.baidu.com/item/free()/9848328
+    */
     free(ptr);
 }
 
 
 #ifdef MS_WINDOWS
+// WINDOWS系统下分配和释放内存方式
 static void *
 _PyObject_ArenaVirtualAlloc(void *ctx, size_t size)
 {
@@ -143,9 +177,15 @@ _PyObject_ArenaVirtualFree(void *ctx, void *ptr, size_t size)
 }
 
 #elif defined(ARENAS_USE_MMAP)
+// 使用mmap/munmap 进行内存申请/释放
 static void *
 _PyObject_ArenaMmap(void *ctx, size_t size)
 {
+    /*
+    mmap：
+        百度词条：https://baike.baidu.com/item/mmap/1322217?fr=aladdin
+        一种内存映射文件的方法，mmap将一个文件或者其它对象映射进内存。
+    */
     void *ptr;
     ptr = mmap(NULL, size, PROT_READ|PROT_WRITE,
                MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
@@ -158,10 +198,18 @@ _PyObject_ArenaMmap(void *ctx, size_t size)
 static void
 _PyObject_ArenaMunmap(void *ctx, void *ptr, size_t size)
 {
+    /*
+    munmap：
+        百度词条：https://baike.baidu.com/item/munmap
+        用来取消参数start所指的映射内存起始地址，参数length则是欲取消的内存大小。
+        当进程结束或利用exec相关函数来执行其他程序时，映射内存会自动解除，但关闭
+        对应的文件描述符时不会解除映射。
+    */
     munmap(ptr, size);
 }
 
 #else
+// 使用c中的malloc,free申请/释放内存
 static void *
 _PyObject_ArenaMalloc(void *ctx, size_t size)
 {
@@ -175,8 +223,20 @@ _PyObject_ArenaFree(void *ctx, void *ptr, size_t size)
 }
 #endif
 
+/*
+======================================================================================
+======================================================================================
+*/
+
+
+/*
+================================= 内存管理的第二层 =====================================
+======================================================================================
+抽象层的内存管理，该层与操作系统无关。
+*/
+
 #define MALLOC_ALLOC {NULL, _PyMem_RawMalloc, _PyMem_RawCalloc, _PyMem_RawRealloc, _PyMem_RawFree}
-#ifdef WITH_PYMALLOC
+#ifdef WITH_PYMALLOC // WITH_PYMALLOC 表示使用Python的小块内存分配机制（small-block memory-allocator）
 #  define PYMALLOC_ALLOC {NULL, _PyObject_Malloc, _PyObject_Calloc, _PyObject_Realloc, _PyObject_Free}
 #endif
 
@@ -190,17 +250,27 @@ _PyObject_ArenaFree(void *ctx, void *ptr, size_t size)
 
 typedef struct {
     /* We tag each block with an API ID in order to tag API violations */
+    /* 
+    typedef:C 语言提供了 typedef 关键字，您可以使用它来为类型取一个新的名字。
+            此处给结构体取一个debug_alloc_api_t别名。
+    */
     char api_id;
     PyMemAllocatorEx alloc;
 } debug_alloc_api_t;
 static struct {
+    /*
+    声明一个结构体，并且进行初始化, _PyMem_Debug 结构体包含raw,mem,obj三个不同的debug_alloc_api_t成员
+    r: api_id, 
+    PYRAW_ALLOC: alloc
+    通过_PyMem_Debug.[raw/mem/obj].[malloc/calloc/realloc/free]等方法实现管理
+    */
     debug_alloc_api_t raw;
     debug_alloc_api_t mem;
     debug_alloc_api_t obj;
 } _PyMem_Debug = {
-    {'r', PYRAW_ALLOC},
-    {'m', PYMEM_ALLOC},
-    {'o', PYOBJ_ALLOC}
+    {'r', PYRAW_ALLOC}, // 成员raw
+    {'m', PYMEM_ALLOC}, // 成员 mem
+    {'o', PYOBJ_ALLOC}  // 成员 obj
     };
 
 #define PYDBGRAW_ALLOC \
@@ -210,6 +280,7 @@ static struct {
 #define PYDBGOBJ_ALLOC \
     {&_PyMem_Debug.obj, _PyMem_DebugMalloc, _PyMem_DebugCalloc, _PyMem_DebugRealloc, _PyMem_DebugFree}
 
+// DEBUG 模式和非 DEBUG模式使用不同的_ALLOC对象
 #ifdef Py_DEBUG
 static PyMemAllocatorEx _PyMem_Raw = PYDBGRAW_ALLOC;
 static PyMemAllocatorEx _PyMem = PYDBGMEM_ALLOC;
@@ -225,7 +296,12 @@ static int
 pymem_set_default_allocator(PyMemAllocatorDomain domain, int debug,
                             PyMemAllocatorEx *old_alloc)
 {
+    /*
+    设置默认的内存分配器
+    PyMemAllocatorDomain: 枚举类型，PYMEM_DOMAIN_RAW/PYMEM_DOMAIN_MEM/PYMEM_DOMAIN_OBJ
+    */
     if (old_alloc != NULL) {
+        // 如果old_alloc不为空，则让old_alloc指向domain所对应的内存分配函数
         PyMem_GetAllocator(domain, old_alloc);
     }
 
@@ -245,9 +321,21 @@ pymem_set_default_allocator(PyMemAllocatorDomain domain, int debug,
     default:
         /* unknown domain */
         return -1;
-    }
+    } 
+    /*
+    根据domain的类型，设置allocator
+    PYMEM_DOMAIN_RAW-->_PyMem_Raw
+    PYMEM_DOMAIN_MEM-->_PyMem
+    PYMEM_DOMAIN_OBJ-->_PyObject
+    */
     PyMem_SetAllocator(domain, &new_alloc);
     if (debug) {
+        /* 
+        如果是debug模式:
+        _PyMem_Raw.malloc --> _PyMem_DebugRawMalloc
+        _PyMem.malloc     --> _PyMem_DebugMalloc
+        _PyObject.malloc  --> _PyMem_DebugMalloc
+        */
         _PyMem_SetupDebugHooksDomain(domain);
     }
     return 0;
@@ -537,6 +625,9 @@ PyMem_GetAllocator(PyMemAllocatorDomain domain, PyMemAllocatorEx *allocator)
 void
 PyMem_SetAllocator(PyMemAllocatorDomain domain, PyMemAllocatorEx *allocator)
 {
+    /*
+    设置内存分配器，根据domain类型，设置_PyMem_Raw/_PyMem/_PyObject 指向allocator
+    */
     switch(domain)
     {
     case PYMEM_DOMAIN_RAW: _PyMem_Raw = *allocator; break;
@@ -557,6 +648,26 @@ PyObject_SetArenaAllocator(PyObjectArenaAllocator *allocator)
 {
     _PyObject_Arena = *allocator;
 }
+
+/*
+原始内存接口
+PyMem_RawMalloc    --> _PyMem_Raw.malloc
+PyMem_RawCalloc    --> _PyMem_Raw.calloc
+PyMem_RawRealloc   --> _PyMem_Raw.realloc
+PyMem_RawFree      --> _PyMem_Raw.free
+
+内存接口
+PyMem_Malloc       --> _PyMem.malloc
+PyMem_Calloc       --> _PyMem.calloc
+PyMem_Realloc      --> _PyMem.realloc
+PyMem_Free         --> _PyMem.free
+
+对象分配器
+PyObject_Malloc    --> _PyObject.malloc
+PyObject_Calloc    --> _PyObject.calloc
+PyObject_Realloc   --> _PyObject.realloc
+PyObject_Free      --> _PyObject.free
+*/
 
 void *
 PyMem_RawMalloc(size_t size)
@@ -1889,6 +2000,17 @@ allocate_from_new_pool(uint size)
     return bp;
 }
 
+/*
+######################################## Python 内存的申请/扩展/释放 ########################################
+######################################## Python 内存的申请/扩展/释放 ########################################
+######################################## Python 内存的申请/扩展/释放 ########################################
+######################################## Python 内存的申请/扩展/释放 ########################################
+######################################## Python 内存的申请/扩展/释放 ########################################
+*/
+
+/*
+########################################           内存申请        ########################################
+*/
 /* pymalloc allocator
 
    Return a pointer to newly allocated memory if pymalloc allocated memory.
@@ -1900,6 +2022,12 @@ allocate_from_new_pool(uint size)
 static inline void*
 pymalloc_alloc(void *ctx, size_t nbytes)
 {
+    /*
+    python小内存申请
+    WITH_VALGRIND: 内存泄漏模式，可能是用于调试的？
+    SMALL_REQUEST_THRESHOLD: 用于判断小内存/大内存的阈值，当申请的内存大于阈值时返回空，之后应该用PyMem_RawMalloc申请内存。
+    
+    */
 #ifdef WITH_VALGRIND
     if (UNLIKELY(running_on_valgrind == -1)) {
         running_on_valgrind = RUNNING_ON_VALGRIND;
@@ -1948,6 +2076,9 @@ pymalloc_alloc(void *ctx, size_t nbytes)
 static void *
 _PyObject_Malloc(void *ctx, size_t nbytes)
 {
+    /*
+    python对象内存申请，如果pymalloc_alloc申请失败(内存大小超过阈值)则使用PyMem_RawMalloc申请
+    */
     void* ptr = pymalloc_alloc(ctx, nbytes);
     if (LIKELY(ptr != NULL)) {
         return ptr;
@@ -1964,8 +2095,11 @@ _PyObject_Malloc(void *ctx, size_t nbytes)
 static void *
 _PyObject_Calloc(void *ctx, size_t nelem, size_t elsize)
 {
+    /*
+    python对象内存申请，动态分配完内存后，自动初始化该内存空间为零，如果pymalloc_alloc申请失败(内存大小超过阈值)则使用PyMem_RawCalloc申请
+    */
     assert(elsize == 0 || nelem <= (size_t)PY_SSIZE_T_MAX / elsize);
-    size_t nbytes = nelem * elsize;
+    size_t nbytes = nelem * elsize; // 总字节数 = 元素数量 * 每个元素字节数
 
     void* ptr = pymalloc_alloc(ctx, nbytes);
     if (LIKELY(ptr != NULL)) {
@@ -2164,6 +2298,10 @@ insert_to_freepool(poolp pool)
            || ao->prevarena->nextarena == ao);
 }
 
+/*
+########################################           内存释放        ########################################
+*/
+
 /* Free a memory block allocated by pymalloc_alloc().
    Return 1 if it was freed.
    Return 0 if the block was not allocated by pymalloc_alloc(). */
@@ -2228,6 +2366,11 @@ pymalloc_free(void *ctx, void *p)
 static void
 _PyObject_Free(void *ctx, void *p)
 {
+    /*
+    释放内存:
+        如果指针为空，返回
+        如果pymalloc_free释放失败，则使用PyMem_RawFree释放
+    */
     /* PyObject_Free(NULL) has no effect */
     if (p == NULL) {
         return;
@@ -2240,6 +2383,9 @@ _PyObject_Free(void *ctx, void *p)
     }
 }
 
+/*
+########################################           内存扩展        ########################################
+*/
 
 /* pymalloc realloc.
 
@@ -2314,6 +2460,11 @@ pymalloc_realloc(void *ctx, void **newptr_p, void *p, size_t nbytes)
 static void *
 _PyObject_Realloc(void *ctx, void *ptr, size_t nbytes)
 {
+    /*
+    扩展内存申请:
+        如果ptr为空，表示需要重新申请，调用_PyObject_Malloc进行内存申请
+        如果使用pymalloc_realloc扩展失败(超过内存阈值), 则使用PyMem_RawRealloc进行扩展
+    */
     void *ptr2;
 
     if (ptr == NULL) {
@@ -2341,6 +2492,13 @@ _Py_GetAllocatedBlocks(void)
 
 #endif /* WITH_PYMALLOC */
 
+/*
+######################################## Debug模式下内存的申请/扩展/释放 ########################################
+######################################## Debug模式下内存的申请/扩展/释放 ########################################
+######################################## Debug模式下内存的申请/扩展/释放 ########################################
+######################################## Debug模式下内存的申请/扩展/释放 ########################################
+######################################## Debug模式下内存的申请/扩展/释放 ########################################
+*/
 
 /*==========================================================================*/
 /* A x-platform debugging allocator.  This doesn't manage memory directly,

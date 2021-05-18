@@ -45,6 +45,9 @@ typedef enum {
 
 
 typedef struct {
+    /*
+    内存管理器结构体，内存分配器创建后，通过实现和调用malloc/calloc/realloc/free 方法进行内存的管理
+    */
     /* user context passed as the first argument to the 4 functions */
     void *ctx;
 
