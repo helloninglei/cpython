@@ -1074,45 +1074,66 @@ static int running_on_valgrind = -1;
 
 /*==========================================================================*/
 
+/*
+######################################## Python 内存结构【block, pool, arena_object】 ########################################
+######################################## Python 内存结构【block, pool, arena_object】 ########################################
+######################################## Python 内存结构【block, pool, arena_object】 ########################################
+######################################## Python 内存结构【block, pool, arena_object】 ########################################
+######################################## Python 内存结构【block, pool, arena_object】 ########################################
+
+
 /* When you say memory, my mind reasons in terms of (pointers to) blocks */
+// 每个block默认为8bytes
 typedef uint8_t block;
 
 /* Pool for small blocks. */
 struct pool_header {
+    /*
+    内存池的结构体，下面会创建poolp的别名
+    */
     union { block *_padding;
-            uint count; } ref;          /* number of allocated blocks    */
-    block *freeblock;                   /* pool's free list head         */
-    struct pool_header *nextpool;       /* next pool of this size class  */
-    struct pool_header *prevpool;       /* previous pool       ""        */
-    uint arenaindex;                    /* index into arenas of base adr */
-    uint szidx;                         /* block size class index        */
-    uint nextoffset;                    /* bytes to virgin block         */
-    uint maxnextoffset;                 /* largest valid nextoffset      */
+            uint count; } ref;          /* number of allocated blocks    已分配的block数量*/
+    block *freeblock;                   /* pool's free list head         链表结构，指向下一个可用的block*/
+    struct pool_header *nextpool;       /* next pool of this size class  双链表，下一个池*/
+    struct pool_header *prevpool;       /* previous pool       ""        指向上一个池*/
+    uint arenaindex;                    /* index into arenas of base adr 创建池时对应的arean地址*/
+    uint szidx;                         /* block size class index        对应的block的size class index*/
+    uint nextoffset;                    /* bytes to virgin block         下一个可用的block偏移量*/
+    uint maxnextoffset;                 /* largest valid nextoffset      最后一个block距离开始位置的距离*/
 };
 
 typedef struct pool_header *poolp;
 
 /* Record keeping for arenas. */
 struct arena_object {
+    /*
+    每个Arenas固定大小为256KB
+    每个Arenas对象包装包含64个内存池, 每个内存池大小为256KB/64=4KB
+    */
     /* The address of the arena, as returned by malloc.  Note that 0
      * will never be returned by a successful malloc, and is used
      * here to mark an arena_object that doesn't correspond to an
      * allocated arena.
      */
+    //arena对象的地址，由malloc分配
     uintptr_t address;
 
     /* Pool-aligned pointer to the next pool to be carved off. */
+    //指向可用内存池的对齐指针(首个字节)
     block* pool_address;
 
     /* The number of available pools in the arena:  free pools + never-
      * allocated pools.
      */
+    //arena可用的内存池的数量
     uint nfreepools;
 
     /* The total number of pools in the arena, whether or not available. */
+    //arena中的内存池总数
     uint ntotalpools;
 
     /* Singly-linked list of available pools. */
+    //可用池的单链接列表
     struct pool_header* freepools;
 
     /* Whenever this arena_object is not associated with an allocated
@@ -1129,6 +1150,7 @@ struct arena_object {
      * all of whose pools are in use.  `nextarena` and `prevarena`
      * are both meaningless in this case.
      */
+    // 双链表结构，每个arena有一个前驱arena和一个后继arena
     struct arena_object* nextarena;
     struct arena_object* prevarena;
 };
@@ -1241,9 +1263,24 @@ on that C doesn't insert any padding anywhere in a pool_header at or before
 the prevpool member.
 **************************************************************************** */
 
+/*
+PTA(x) : 这个宏表达式意思是，指向usedpools[2x]的地址再向前偏移sizeof(pool_header.ref)+sizeof(block)后的地址，
+显然我们知道在x86_64的C编译器中刚好是16个字节,从pool_header结构体的定义发现从pool_header首个字节到nextpool字段首
+个字节的边界，刚好相差16个字节的偏移量。prevpool或nextpool指针的向前偏移单位均为2倍的block尺寸。
+*/
 #define PTA(x)  ((poolp )((uint8_t *)&(usedpools[2*(x)]) - 2*sizeof(block *)))
+/*
+PT(x) ==> PTA(x), PTA(x)
+*/
 #define PT(x)   PTA(x), PTA(x)
+/*
+通过使用usedpools数组，维护者所有处于used状态的pool。当申请内存size class为N时，Python会
+通过usedpools查找到与N对应的size idx可用的内存池，从中分配一个类型尺寸为N的块。
+NB_SMALL_SIZE_CLASSES: 标识当前的CPython实现有多少个size class, 通过该宏定义的值，确定将usedpools初始化为：
+usedpools[8/16/24/32/40/48/56/64]
+static poolp usedpools[4] ==> {PTA(0), PTA(0), PTA(1), PTA(1), PTA(2), PTA(2), PTA(3),PTA(3)}
 
+*/
 static poolp usedpools[2 * ((NB_SMALL_SIZE_CLASSES + 7) / 8) * 8] = {
     PT(0), PT(1), PT(2), PT(3), PT(4), PT(5), PT(6), PT(7)
 #if NB_SMALL_SIZE_CLASSES > 8
@@ -1854,6 +1891,7 @@ static void
 pymalloc_pool_extend(poolp pool, uint size)
 {
     if (UNLIKELY(pool->nextoffset <= pool->maxnextoffset)) {
+        // 下一个block的偏移量小于到最末端的偏移量，表示还有空间
         /* There is room for another block. */
         pool->freeblock = (block*)pool + pool->nextoffset;
         pool->nextoffset += INDEX2SIZE(size);
@@ -2006,6 +2044,20 @@ allocate_from_new_pool(uint size)
 ######################################## Python 内存的申请/扩展/释放 ########################################
 ######################################## Python 内存的申请/扩展/释放 ########################################
 ######################################## Python 内存的申请/扩展/释放 ########################################
+
+内存池管理小于256kb对象：
+    pymalloc_alloc --> allocate_from_new_pool --> new_arena --> PyMem_RawRealloc --> _PyMem_Raw.realloc --> realloc
+    - pymalloc_alloc    内存申请
+    - pymalloc_realloc  内存扩展
+    - pymalloc_free     内存释放
+    - pymalloc_pool_extend
+
+大于256kb的对象：
+    - PyMem_RawMalloc   内存申请
+    - PyMem_RawCalloc   内存申请
+    - PyMem_RawRealloc  内存扩展
+    - PyMem_RawFree     内存释放
+
 */
 
 /*
@@ -2024,7 +2076,6 @@ pymalloc_alloc(void *ctx, size_t nbytes)
 {
     /*
     python小内存申请
-    WITH_VALGRIND: 内存泄漏模式，可能是用于调试的？
     SMALL_REQUEST_THRESHOLD: 用于判断小内存/大内存的阈值，当申请的内存大于阈值时返回空，之后应该用PyMem_RawMalloc申请内存。
     
     */
