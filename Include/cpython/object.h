@@ -191,6 +191,7 @@ typedef Py_ssize_t printfunc;
 struct _typeobject {
     PyObject_VAR_HEAD
     const char *tp_name; /* For printing, in format "<module>.<name>" */
+    // 对象的基本大小和对象的元素大小，用于分配对应的内存
     Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
 
     /* Methods to implement standard operations */

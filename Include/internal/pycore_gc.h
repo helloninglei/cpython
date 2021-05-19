@@ -68,6 +68,7 @@ typedef struct {
 
 /* If we change this, we need to change the default value in the
    signature of gc.collect. */
+// 分代数量
 #define NUM_GENERATIONS 3
 /*
    NOTE: about untracking of mutable objects.
@@ -128,6 +129,9 @@ struct gc_generation_stats {
 };
 
 struct _gc_runtime_state {
+    /*
+    gc运行状态对象
+    */
     /* List of objects that still need to be cleaned up, singly linked
      * via their gc headers' gc_prev pointers.  */
     PyObject *trash_delete_later;
@@ -154,10 +158,12 @@ struct _gc_runtime_state {
 
        (by "full collection", we mean a collection of the oldest
        generation). */
+    // 表示上一次完全回收中幸存的对象
     Py_ssize_t long_lived_total;
     /* This is the number of objects that survived all "non-full"
        collections, and are awaiting to undergo a full collection for
        the first time. */
+    // 表示非完全回收幸存的对象，等待一次完全回收。
     Py_ssize_t long_lived_pending;
 };
 

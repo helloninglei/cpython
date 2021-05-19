@@ -129,6 +129,15 @@ _Py_NegativeRefcount(const char *filename, int lineno, PyObject *op)
                            filename, lineno, __func__);
 }
 
+/*
+############################################################################################
+##################################  Python 对象引用计数 ######################################
+############################################################################################
+_Py_IncRef --> Py_INCREF --> Py_XINCREF --> ob_refcnt(++)
+_Py_DecRef --> Py_DECREF --> Py_XDECREF --> ob_refcnt(--) -->_Py_Dealloc --> op.tp_dealloc
+如果没有循环引用的问题，所有的对象在引用变成0之后都会自动销毁。
+*/
+
 #endif /* Py_REF_DEBUG */
 
 void
@@ -2281,6 +2290,7 @@ _PyObject_AssertFailed(PyObject *obj, const char *expr, const char *msg,
 void
 _Py_Dealloc(PyObject *op)
 {
+    // dealloc 指向对象类型的tp_dealloc方法，即通过对象所属类型的析构函数销毁对象
     destructor dealloc = Py_TYPE(op)->tp_dealloc;
 #ifdef Py_TRACE_REFS
     _Py_ForgetReference(op);

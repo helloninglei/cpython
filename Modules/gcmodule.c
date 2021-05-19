@@ -139,6 +139,11 @@ get_gc_state(void)
 void
 _PyGC_InitState(GCState *gcstate)
 {
+    /*
+    gc 初始化, 将NUM_GENERATIONS个代初始化后加入gcstate的generations成员中
+    一共3个代，代的结构为{PyGC_Head, threshold, count}, 每一代count超过threshold会触发垃圾回收
+    generation0指向第0“代”
+    */
     gcstate->enabled = 1; /* automatic collection enabled? */
 
 #define _GEN_HEAD(n) GEN_HEAD(gcstate, n)
@@ -1419,6 +1424,12 @@ gc_collect_with_callback(PyThreadState *tstate, int generation)
 static Py_ssize_t
 gc_collect_generations(PyThreadState *tstate)
 {
+    /*
+    分代回收，遍历每一代，如果当前代的计数超过了阈值
+        1. 如果是最后一代，并且long_lived_pending值小于long_lived_total/4，则跳过
+        2. 如果不是最后一代，或者是最后一代但是long_lived_pending值不小于long_lived_total/4，则调用gc_collect_with_callback回收
+    
+    */
     GCState *gcstate = &tstate->interp->gc;
     /* Find the oldest generation (highest numbered) where the count
      * exceeds the threshold.  Objects in the that generation and
