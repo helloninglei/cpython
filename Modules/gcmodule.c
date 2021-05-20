@@ -479,6 +479,11 @@ visit_decref(PyObject *op, void *parent)
 static void
 subtract_refs(PyGC_Head *containers)
 {
+    /*
+    负责清除链表对象之间的循环引用
+    遍历所有container对象，调用container对象类型的tp_traverse指针指向的遍历函数，这里visit_decref函数作为访问者模式的访问者传入。
+    执行完subtract_refs之后，可收集对象链表中所有contianer对象之间的环引用都被摘除了。
+    */
     traverseproc traverse;
     PyGC_Head *gc = GC_NEXT(containers);
     for (; gc != containers; gc = GC_NEXT(gc)) {
@@ -1189,11 +1194,16 @@ gc_collect_main(PyThreadState *tstate, int generation,
                 Py_ssize_t *n_collected, Py_ssize_t *n_uncollectable,
                 int nofail)
 {
+    /*
+    真正执行回收的函数
+    gc_list_merge：合并当前代及所有更年轻的代
+    */
     int i;
     Py_ssize_t m = 0; /* # objects collected */
     Py_ssize_t n = 0; /* # unreachable objects that couldn't be collected */
     PyGC_Head *young; /* the generation we are examining */
     PyGC_Head *old; /* next older generation */
+    // 不可达对象，表示没有引用，可以清理
     PyGC_Head unreachable; /* non-problematic unreachable trash */
     PyGC_Head finalizers;  /* objects with, & reachable from, __del__ */
     PyGC_Head *gc;
@@ -1223,17 +1233,24 @@ gc_collect_main(PyThreadState *tstate, int generation,
         PyDTrace_GC_START(generation);
 
     /* update collection and allocation counters */
+    // 更新比当前更老一“代”的count计数器。可以看出count值其实表示的是该代经历垃圾回收幸存的次数。
     if (generation+1 < NUM_GENERATIONS)
         gcstate->generations[generation+1].count += 1;
+    // 将当前代及更年轻的代count重置为0
     for (i = 0; i <= generation; i++)
         gcstate->generations[i].count = 0;
 
     /* merge younger generations with one we are currently collecting */
+    // 合并当前代及所有更年轻的代
     for (i = 0; i < generation; i++) {
         gc_list_merge(GEN_HEAD(gcstate, i), GEN_HEAD(gcstate, generation));
     }
 
     /* handy references */
+    /* 
+    young ==> 合并后的当前代及所有年轻的代
+    old   ==> 当前代的老一代
+    */
     young = GEN_HEAD(gcstate, generation);
     if (generation < NUM_GENERATIONS-1)
         old = GEN_HEAD(gcstate, generation+1);
@@ -1339,7 +1356,7 @@ gc_collect_main(PyThreadState *tstate, int generation,
             _PyErr_WriteUnraisableMsg("in garbage collection", NULL);
         }
     }
-
+    // 更新状态
     /* Update stats */
     if (n_collected) {
         *n_collected = m;
@@ -1425,7 +1442,7 @@ static Py_ssize_t
 gc_collect_generations(PyThreadState *tstate)
 {
     /*
-    分代回收，遍历每一代，如果当前代的计数超过了阈值
+    查找最后一代，回收时会回收最后一代及之前的所有代。
         1. 如果是最后一代，并且long_lived_pending值小于long_lived_total/4，则跳过
         2. 如果不是最后一代，或者是最后一代但是long_lived_pending值不小于long_lived_total/4，则调用gc_collect_with_callback回收
     
