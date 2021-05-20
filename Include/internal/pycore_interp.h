@@ -217,6 +217,7 @@ struct type_cache {
 #endif
 
 // The PyInterpreterState typedef is in Include/pystate.h.
+// 解释器状态结构体
 struct _is {
 
     struct _is *next;

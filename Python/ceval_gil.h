@@ -92,6 +92,9 @@
 
 static void _gil_initialize(struct _gil_runtime_state *gil)
 {
+    /*
+    GIL 初始化，状态未-1，表示未创建状态
+    */
     _Py_atomic_int uninitialized = {-1};
     gil->locked = uninitialized;
     gil->interval = DEFAULT_INTERVAL;
@@ -99,11 +102,17 @@ static void _gil_initialize(struct _gil_runtime_state *gil)
 
 static int gil_created(struct _gil_runtime_state *gil)
 {
+    /*
+    判断GIL是否已创建，原子读操作
+    */
     return (_Py_atomic_load_explicit(&gil->locked, _Py_memory_order_acquire) >= 0);
 }
 
 static void create_gil(struct _gil_runtime_state *gil)
 {
+    /*
+    创建GIL，原子写操作
+    */
     MUTEX_INIT(gil->mutex);
 #ifdef FORCE_SWITCHING
     MUTEX_INIT(gil->switch_mutex);
@@ -119,6 +128,9 @@ static void create_gil(struct _gil_runtime_state *gil)
 
 static void destroy_gil(struct _gil_runtime_state *gil)
 {
+    /*
+    销毁GIL，原子写操作
+    */
     /* some pthread-like implementations tie the mutex to the cond
      * and must have the cond destroyed first.
      */
@@ -134,7 +146,9 @@ static void destroy_gil(struct _gil_runtime_state *gil)
 }
 
 static void recreate_gil(struct _gil_runtime_state *gil)
-{
+{   /*
+    销毁-->重新创建
+    */
     _Py_ANNOTATE_RWLOCK_DESTROY(&gil->locked);
     /* XXX should we destroy the old OS resources here? */
     create_gil(gil);
@@ -214,6 +228,15 @@ tstate_must_exit(PyThreadState *tstate)
 static void
 take_gil(PyThreadState *tstate)
 {
+    /*
+    获取GIL
+    1. 获取mutex互斥锁
+    2. 检查是否有线程持有GIL（locked为1）
+    3. 如果GIL被占有的话，设置cond信号量等待。
+    4. 等待的时候线程就会挂起，释放mutex互斥锁。
+    5. cond信号被唤醒时，mutex互斥锁会自动加锁。
+    while语句避免了意外唤醒时条件不满足，大多数情况下都是条件满足被唤醒。
+    */
     int err = errno;
 
     assert(tstate != NULL);
@@ -254,6 +277,10 @@ take_gil(PyThreadState *tstate)
         int timed_out = 0;
         COND_TIMED_WAIT(gil->cond, gil->mutex, interval, timed_out);
 
+        /*
+        如果等待超时并且这期间没有发生线程切换，就通过SET_GIL_DROP_REQUEST请求持有GIL的线程释放GIL。
+        反之获得GIL就将locked置为1，并将当前线程状态PyThreadState对象保存到last_holder，switch_number切换次数加1。
+        */
         /* If we timed out and no switch occurred in the meantime, it is time
            to ask the GIL-holding thread to drop it. */
         if (timed_out &&

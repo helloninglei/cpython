@@ -308,6 +308,9 @@ PyEval_ThreadsInitialized(void)
 PyStatus
 _PyEval_InitGIL(PyThreadState *tstate)
 {
+    /*
+    初始化GIL, 创建--> 获取
+    */
 #ifndef EXPERIMENTAL_ISOLATED_SUBINTERPRETERS
     if (!_Py_IsMainInterpreter(tstate->interp)) {
         /* Currently, the GIL is shared by all interpreters,
@@ -417,6 +420,7 @@ _PyEval_Fini(void)
 void
 PyEval_AcquireLock(void)
 {
+    // 获取锁 --> 拿GIL
     _PyRuntimeState *runtime = &_PyRuntime;
     PyThreadState *tstate = _PyRuntimeState_GetThreadState(runtime);
     _Py_EnsureTstateNotNULL(tstate);
@@ -427,6 +431,7 @@ PyEval_AcquireLock(void)
 void
 PyEval_ReleaseLock(void)
 {
+    // 释放锁 --> 释放GIL
     _PyRuntimeState *runtime = &_PyRuntime;
     PyThreadState *tstate = _PyRuntimeState_GetThreadState(runtime);
     /* This function must succeed when the current thread state is NULL.

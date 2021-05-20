@@ -482,7 +482,7 @@ subtract_refs(PyGC_Head *containers)
     /*
     负责清除链表对象之间的循环引用
     遍历所有container对象，调用container对象类型的tp_traverse指针指向的遍历函数，这里visit_decref函数作为访问者模式的访问者传入。
-    执行完subtract_refs之后，可收集对象链表中所有contianer对象之间的环引用都被摘除了。
+    执行完subtract_refs之后，可收集对象链表中所有contianer对象之间的环引用都将被摘除。
     */
     traverseproc traverse;
     PyGC_Head *gc = GC_NEXT(containers);

@@ -675,6 +675,7 @@ new_threadstate(PyInterpreterState *interp, int init)
     return tstate;
 }
 
+// 创建一个新的现成
 PyThreadState *
 PyThreadState_New(PyInterpreterState *interp)
 {

@@ -59,6 +59,7 @@ typedef struct _err_stackitem {
 
 
 // The PyThreadState typedef is in Include/pystate.h.
+// 线程状态结构体
 struct _ts {
     /* See Python/ceval.c for comments explaining most fields */
 

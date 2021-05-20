@@ -21,6 +21,19 @@ extern "C" {
 #define FORCE_SWITCHING
 
 struct _gil_runtime_state {
+    /*
+    GIL 运行时状态
+        -1: 未初始化
+         1: 已被线程获取
+         0: 未被线程获取
+
+    cond和mutex用来保护locked:
+        cond:条件机制
+        mutex:互斥锁
+
+    _Py_atomic_address:
+        atomic_uintptr_t是一个原子类型指针，当一个线程获得GIL之后，_value将指向线程状态PyThreadState对象。
+    */
     /* microseconds (the Python API uses seconds, though) */
     unsigned long interval;
     /* Last PyThreadState holding / having held the GIL. This helps us

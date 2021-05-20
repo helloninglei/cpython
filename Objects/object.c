@@ -135,7 +135,7 @@ _Py_NegativeRefcount(const char *filename, int lineno, PyObject *op)
 ############################################################################################
 _Py_IncRef --> Py_INCREF --> Py_XINCREF --> ob_refcnt(++)
 _Py_DecRef --> Py_DECREF --> Py_XDECREF --> ob_refcnt(--) -->_Py_Dealloc --> op.tp_dealloc
-如果没有循环引用的问题，所有的对象在引用变成0之后都会自动销毁。
+如果没有循环引用的问题，所有的对象在引用变成0之后都会自动销毁。由于循环引用的存在，所以需要
 */
 
 #endif /* Py_REF_DEBUG */
@@ -163,6 +163,14 @@ _Py_DecRef(PyObject *o)
 {
     Py_DECREF(o);
 }
+
+/*
+############################################################################################
+##################################   Python 对象初始化  ######################################
+############################################################################################
+PyObject_Init, PyObject_InitVar, 
+
+*/
 
 PyObject *
 PyObject_Init(PyObject *op, PyTypeObject *tp)

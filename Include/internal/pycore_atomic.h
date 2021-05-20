@@ -112,6 +112,9 @@ typedef enum _Py_memory_order {
 } _Py_memory_order;
 
 typedef struct _Py_atomic_address {
+    /*
+    uintptr_t 是一个原子类型指针，当一个线程获得GIL之后，_value将指向线程状态PyThreadState对象。
+    */
     uintptr_t _value;
 } _Py_atomic_address;
 
@@ -161,6 +164,7 @@ _Py_ANNOTATE_MEMORY_ORDER(const volatile void *address, _Py_memory_order order)
     }
 }
 
+// 原子写操作
 #define _Py_atomic_store_explicit(ATOMIC_VAL, NEW_VAL, ORDER) \
     __extension__ ({ \
         __typeof__(ATOMIC_VAL) atomic_val = ATOMIC_VAL; \
@@ -190,7 +194,7 @@ _Py_ANNOTATE_MEMORY_ORDER(const volatile void *address, _Py_memory_order order)
         } \
         _Py_ANNOTATE_IGNORE_WRITES_END(); \
     })
-
+// 原子读操作
 #define _Py_atomic_load_explicit(ATOMIC_VAL, ORDER) \
     __extension__ ({  \
         __typeof__(ATOMIC_VAL) atomic_val = ATOMIC_VAL; \
