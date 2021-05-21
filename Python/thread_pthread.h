@@ -358,7 +358,9 @@ PyThread_get_thread_native_id(void)
 
 void _Py_NO_RETURN
 PyThread_exit_thread(void)
-{
+{   /*
+    是一个平台相关的操作，完成各个平台上不同的销毁原生线程的工作。在POSIX Thread(pthread) 下，实际上就是调用pthread_exit函数。
+    */
     dprintf(("PyThread_exit_thread called\n"));
     if (!initialized)
         exit(0);

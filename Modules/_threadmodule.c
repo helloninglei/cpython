@@ -1044,6 +1044,12 @@ _localdummy_destroyed(PyObject *localweakref, PyObject *dummyweakref)
 /* Module functions */
 
 struct bootstate {
+    /*
+    记录了线程的信息
+    func, args, keyw记录线程执行的函数以及参数。
+    interp和tstate分别保存了进程状态PyInterpreterState对象和线程状态PyThreadState对象。
+    通过PyThreadState_GET获取当前线程状态PyThreadState对象，进而可以获取解释器状态PyInterpreterState对象。
+    */
     PyInterpreterState *interp;
     PyObject *func;
     PyObject *args;
@@ -1056,6 +1062,9 @@ struct bootstate {
 static void
 thread_bootstate_free(struct bootstate *boot)
 {
+    /*
+    清理线程，减少函数，及参数的引用数，释放线程内存资源。
+    */
     Py_DECREF(boot->func);
     Py_DECREF(boot->args);
     Py_XDECREF(boot->kwargs);
@@ -1066,6 +1075,15 @@ thread_bootstate_free(struct bootstate *boot)
 static void
 thread_run(void *boot_raw)
 {
+    /*
+    运行线程
+    准备阶段：初始化线程，获取线程锁(GIL), 设置解释器线程数+1
+    执行阶段：调用PyObject_Call执行函数
+    善后阶段：销毁函数及相关参数，释放线程资源，解释器线程数-1
+            清理线程相关状态，释放线程所占内存资源
+            释放线程状态对象并释放GIL
+            退出线程
+    */
     struct bootstate *boot = (struct bootstate *) boot_raw;
     PyThreadState *tstate;
 

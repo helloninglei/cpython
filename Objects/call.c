@@ -228,6 +228,7 @@ _PyObject_MakeTpCall(PyThreadState *tstate, PyObject *callable,
 PyObject *
 PyVectorcall_Call(PyObject *callable, PyObject *tuple, PyObject *kwargs)
 {
+    // 获取GIL
     PyThreadState *tstate = _PyThreadState_GET();
     vectorcallfunc func;
 
@@ -313,6 +314,9 @@ _PyObject_Call(PyThreadState *tstate, PyObject *callable,
 PyObject *
 PyObject_Call(PyObject *callable, PyObject *args, PyObject *kwargs)
 {
+    /*
+    执行可调用对象
+    */
     PyThreadState *tstate = _PyThreadState_GET();
     return _PyObject_Call(tstate, callable, args, kwargs);
 }

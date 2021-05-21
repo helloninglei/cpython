@@ -181,6 +181,9 @@ bootstrap(void *call)
 unsigned long
 PyThread_start_new_thread(void (*func)(void *), void *arg)
 {
+    /*
+    创建新的线程
+    */
     HANDLE hThread;
     unsigned threadID;
     callobj *obj;

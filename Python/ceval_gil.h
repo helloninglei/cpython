@@ -15,25 +15,36 @@
      by a mutex (gil_mutex), and whose changes are signalled by a condition
      variable (gil_cond). gil_mutex is taken for short periods of time,
      and therefore mostly uncontended.
+    GIL只是一个布尔变量（locked），其访问受mutex（gil_mutex）保护，其更改由条件变量（gil_cond）发出信号。
+    gilèu mutex的使用时间很短，因此大多数情况下是无竞争的
 
    - In the GIL-holding thread, the main loop (PyEval_EvalFrameEx) must be
      able to release the GIL on demand by another thread. A volatile boolean
      variable (gil_drop_request) is used for that purpose, which is checked
      at every turn of the eval loop. That variable is set after a wait of
      `interval` microseconds on `gil_cond` has timed out.
+     在GIL holding线程中，主循环（PyEval_EvalFrameEx）必须能够根据另一个线程的请求释放GIL。
+     一个可变的布尔变量（gil_drop_request）用于此目的，它在eval循环的每一个回合都被检查。该变量
+     是在“gil_cond”上等待“interval”微秒超时后设置的。
 
       [Actually, another volatile boolean variable (eval_breaker) is used
        which ORs several conditions into one. Volatile booleans are
        sufficient as inter-thread signalling means since Python is run
        on cache-coherent architectures only.]
+    实际上，使用了另一个可变布尔变量（eval_breaker），它将多个条件合并为一个条件。
+    由于Python只在缓存相关的体系结构上运行，所以Volatile booleans就足以作为线程间信号传递的手段
 
    - A thread wanting to take the GIL will first let pass a given amount of
      time (`interval` microseconds) before setting gil_drop_request. This
      encourages a defined switching period, but doesn't enforce it since
      opcodes can take an arbitrary time to execute.
+     想要获取GIL的线程在设置gil_drop_request请求之前，将首先让给定的时间量（`interval`微秒）通过。
+     这会鼓励定义一个切换周期，但不会强制执行，因为操作码可能需要任意时间来执行
+
 
      The `interval` value is available for the user to read and modify
      using the Python API `sys.{get,set}switchinterval()`.
+    “interval”值可供用户使用, 通过python api`sys.{get，set}switchinterval（）可以读取和修改
 
    - When a thread releases the GIL and gil_drop_request is set, that thread
      ensures that another GIL-awaiting thread gets scheduled.
@@ -41,11 +52,16 @@
      the value of last_holder is changed to something else than its
      own thread state pointer, indicating that another thread was able to
      take the GIL.
+     当一个线程释放GIL并设置gil_drop_request时，该线程确保另一个等待GIL的线程被调度。
+     它通过等待条件变量（switch_cond）直到last_holder的值被更改为自己线程状态指针以外的值，
+     一旦last_holder被更改为其他值，表示另一个线程已经获得了GIL.
 
      This is meant to prohibit the latency-adverse behaviour on multi-core
      machines where one thread would speculatively release the GIL, but still
      run and end up being the first to re-acquire it, making the "timeslices"
      much longer than expected.
+     这是为了禁止多核处理器上的延迟不良行为，一个线程可以推测地释放GIL，但仍然运行并最终成为
+     第一个重新获得它，使“时间片”比预期的要长得多。
      (Note: this mechanism is enabled with FORCE_SWITCHING above)
 */
 
@@ -353,7 +369,6 @@ _ready:
     errno = err;
 }
 
-void _PyEval_SetSwitchInterval(unsigned long microseconds)
 {
 #ifdef EXPERIMENTAL_ISOLATED_SUBINTERPRETERS
     PyInterpreterState *interp = PyInterpreterState_Get();

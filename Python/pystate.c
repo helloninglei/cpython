@@ -827,6 +827,9 @@ _PyInterpreterState_ClearModules(PyInterpreterState *interp)
 void
 PyThreadState_Clear(PyThreadState *tstate)
 {
+    /*
+    清理线程相关状态，即清除当前线程对应的线程状态对象，其实就是对线程状态对象中维护的东西进行引用计数的维护。
+    */
     int verbose = _PyInterpreterState_GetConfig(tstate->interp)->verbose;
 
     if (verbose && tstate->frame != NULL) {
@@ -932,6 +935,9 @@ PyThreadState_Delete(PyThreadState *tstate)
 void
 _PyThreadState_DeleteCurrent(PyThreadState *tstate)
 {
+    /*
+    释放线程状态对象并释放GIL
+    */
     _Py_EnsureTstateNotNULL(tstate);
     struct _gilstate_runtime_state *gilstate = &tstate->interp->runtime->gilstate;
     tstate_delete_common(tstate, gilstate);
