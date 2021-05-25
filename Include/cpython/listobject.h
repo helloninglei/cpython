@@ -3,6 +3,11 @@
 #endif
 
 typedef struct {
+    /*
+    PyListObject是一个变长对象，PyObject_VAR_HEAD中的ob_size值代表列表的长度, 即len(list) == ob_size，
+    指针ob_item指向列表元素的首地址，即list[0] == ob_item[0]，
+    allocated维护了当前列表可容纳的元素大小，即申请的内存大小。
+    */
     PyObject_VAR_HEAD
     /* Vector of pointers to list elements.  list[0] is ob_item[0], etc. */
     PyObject **ob_item;

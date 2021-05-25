@@ -139,6 +139,8 @@ _PyList_DebugMallocStats(FILE *out)
 PyObject *
 PyList_New(Py_ssize_t size)
 {
+    /*
+    */
     if (size < 0) {
         PyErr_BadInternalCall();
         return NULL;
@@ -150,6 +152,13 @@ PyList_New(Py_ssize_t size)
     // PyList_New() must not be called after _PyList_Fini()
     assert(state->numfree != -1);
 #endif
+    /* 
+    检查numfree的值，如果numfree为0，就会通过PyObject_GC_New申请内存创建PyListObject对象。
+    如果numfree不为0，则会从对象池free_list中可用的PyListObject对象，对象池free_list中默认最多维护80个，
+    PyListObject对象
+    PyObject_GC_New实际上是gc模块Modules/gcmodule.c里面的一个函数_PyObject_GC_New。除了申请内存之外，
+    还会为Python中的自动垃圾收集机制做一些准备工作。  
+    */
     if (state->numfree) {
         state->numfree--;
         op = state->free_list[state->numfree];
@@ -223,6 +232,10 @@ static PyObject *indexerr = NULL;
 PyObject *
 PyList_GetItem(PyObject *op, Py_ssize_t i)
 {
+    /*
+    形如lst[1]的语句会调用PyList_GetItem来获取元素。
+    PyList_GetItem也会检查类型和索引，然后返回索引所在位置的对象。
+    */
     if (!PyList_Check(op)) {
         PyErr_BadInternalCall();
         return NULL;
@@ -244,6 +257,11 @@ int
 PyList_SetItem(PyObject *op, Py_ssize_t i,
                PyObject *newitem)
 {
+    /*
+    形如lst[1] = 1的语句会调用PyList_SetItem来设置元素。
+    PyList_SetItem会先进行类型检查，再检查索引的有效性，最后把PyObject对象放到指定位置，并调整引用计数。
+    因为原先位置的值可能为NULL，所以Py_XSETREF中使用Py_XDECREF来做减引用操作
+    */
     PyObject **p;
     if (!PyList_Check(op)) {
         Py_XDECREF(newitem);
@@ -293,6 +311,10 @@ ins1(PyListObject *self, Py_ssize_t where, PyObject *v)
 int
 PyList_Insert(PyObject *op, Py_ssize_t where, PyObject *newitem)
 {
+    /*
+    lst.insert(1, 10)会调用PyList_Insert来插入元素。
+    PyList_Insert会调用list_resize来调整列表原先长度为size+1，然后插入位置后面的元素都后移一位，最后把插入的元素放到指定位置。
+    */
     if (!PyList_Check(op)) {
         PyErr_BadInternalCall();
         return -1;
@@ -318,6 +340,10 @@ app1(PyListObject *self, PyObject *v)
 int
 PyList_Append(PyObject *op, PyObject *newitem)
 {
+    /*
+    lst.append(10)会调用PyList_Append在列表末尾追加元素。
+    PyList_Append先是调整列表原先长度为size+1，然后把追加的元素放到最后。
+    */
     if (PyList_Check(op) && (newitem != NULL))
         return app1((PyListObject *)op, newitem);
     PyErr_BadInternalCall();
@@ -2595,6 +2621,11 @@ static PyObject *
 list_remove(PyListObject *self, PyObject *value)
 /*[clinic end generated code: output=f087e1951a5e30d1 input=2dc2ba5bb2fb1f82]*/
 {
+    /*
+    lst.remove(10)会调用list_remove来移除元素。
+    list_remove会遍历整个列表，将待移除的元素与PyListObject中的每个元素一一进行比较，
+    比较操作是通过PyObject_RichCompareBool来实现，并且调用list_ass_slice来移除元素。
+    */
     Py_ssize_t i;
 
     for (i = 0; i < Py_SIZE(self); i++) {

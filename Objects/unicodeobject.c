@@ -1387,6 +1387,12 @@ unicode_create_empty_string_singleton(struct _Py_unicode_state *state)
 PyObject *
 PyUnicode_New(Py_ssize_t size, Py_UCS4 maxchar)
 {
+    /*
+    函数通过传入对象的大小size和maxchar参数来决定返回的是PyASCIIObject，PyCompactUnicodeObject还是PyUnicodeObject结构体，
+    并申请内存块，初始化结构体的成员。
+    这一系列操作之后就会填充数据到字符串对象中，原字符串会使用不同的编码方案来编码并存储到结构体的不同位置。编码方案取决于字符串对象
+    中的state.kind标志位，也就是原字符串中的最大字符maxchar。
+    */
     /* Optimization for empty strings */
     if (size == 0) {
         return unicode_new_empty();
