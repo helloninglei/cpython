@@ -4302,6 +4302,9 @@ static PyNumberMethods type_as_number = {
 };
 
 PyTypeObject PyType_Type = {
+    /*
+    PyType_Type(type)的类型还是PyType_Type
+    */
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     "type",                                     /* tp_name */
     sizeof(PyHeapTypeObject),                   /* tp_basicsize */
@@ -5490,6 +5493,9 @@ PyDoc_STRVAR(object_doc,
 "instance that has no instance attributes and cannot be given any.\n");
 
 PyTypeObject PyBaseObject_Type = {
+    /*
+    object是一个特殊的类型对象
+    */
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     "object",                                   /* tp_name */
     sizeof(PyObject),                           /* tp_basicsize */

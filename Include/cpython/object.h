@@ -189,6 +189,13 @@ typedef Py_ssize_t printfunc;
 // If this structure is modified, Doc/includes/typestruct.h should be updated
 // as well.
 struct _typeobject {
+    /*
+    以宏PyObject_VAR_HEAD开头，对应是一个变长对象
+    tp_name，类型名，主要是Python内部以及调试的时候使用，用来识别对象的类型；
+    tp_basicsize和tp_itemsize，创建该类型对象时分配内存空间大小的信息；
+    类型对象对应的操作（诸如tp_print这样的许多的函数指针）；
+    类型对象的类型信息
+    */
     PyObject_VAR_HEAD
     const char *tp_name; /* For printing, in format "<module>.<name>" */
     // 对象的基本大小和对象的元素大小，用于分配对应的内存

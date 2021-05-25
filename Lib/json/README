@@ -1,0 +1,16 @@
+- /Lib
+    Python 语言编写的标准库，如asyncio, collections, http等
+
+- /Modules
+    C 语言编写的模块
+
+- /Parser
+    Python 解释器中的Scanner 和 Parser 模块， 对python源代码进行词法分析和语法分析
+
+- /Objects
+    python 内建对象，list, dict等
+
+- /Python
+    Compiler和执行引擎，python 运行的核心
+
+

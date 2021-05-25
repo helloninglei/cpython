@@ -82,7 +82,25 @@ Py_UNICODE_FILL(Py_UNICODE *target, Py_UNICODE value, Py_ssize_t length) {
    structure. state.ascii and state.compact are set, and the data
    immediately follow the structure. utf8_length and wstr_length can be found
    in the length field; the utf8 pointer is equal to the data pointer. */
+/*
+ASCII字符串通过PyUnicode_New使用PyASCIIObject结构体创建。设置state.ascii和state.compact，
+数据立即跟随结构。在长度字段中保存着utf8_length和 wstr_length，utf8指针等价于该数据的指针。
+*/
 typedef struct {
+    /*
+    整个字符串对象是以PyASCIIObject为基础并扩展的。
+    Unicode字符串有4种形式：
+        compact ascii （PyASCIIObject）
+        compact (PyCompactUnicodeObject)
+        legacy string, not ready (PyUnicodeObject)
+        legacy string, ready (PyUnicodeObject)
+    compact 使用1个内存块(存储结构体和字符)，legacy使用2个内存块（一个存结构体，一个存字符)
+
+    length: 保存了字符串中的码位(code points)的数量
+    hash:   缓存了字符串对象的hash值
+    state:  保存了对象的一些信息
+    wstr:   真实的字符串值，并且以NULL("\0")结尾，和c中的字符串一样。
+    */
     /* There are 4 forms of Unicode strings:
 
        - compact ascii:
@@ -161,6 +179,18 @@ typedef struct {
     Py_hash_t hash;             /* Hash value; -1 if not set */
     struct {
         /*
+        interned: 标记了该对象是否已经通过intern(驻留)机制的处理。
+        python的内存驻留机制，是一种节省内存的方案，它将int, str, bool类型的数据(字符串不超过20个字符且仅包含大小写字母、数字、下划线, 数字在[-5, 256]之间)做成小数据池。
+        当程序要创建字符串等对象前会先检查池中是否有满足的字符串。
+        驻留机制节省大量的重复内存。在内部，小数据池是由一个全局的dict维护，该字典中的对象成了单例模式，从而节省内存。
+
+        优点是: 在创建新的字符串对象时，会先在缓存池里面找是否有已经存在的值相同的对象（标识符，即只包含数字、字母、下划线的字符），
+               如果有，则直接拿过来用（引用），避免频繁的创建和销毁内存，提升效率。
+        缺点是: 在拼接字符串时，或者在改动字符串时会极大的影响性能。原因是字符串在Python当中是不可变对象，所以对字符串的改动不是
+               inplace（原地）操作，需要新开辟内存地址，新建对象。这也是为什么拼接字符串的时候不建议用‘+’而是用join()。join()
+               是先计算出全部字符串的长度，然后再一一拷贝，仅仅创建一次对象。
+        */
+        /*
            SSTATE_NOT_INTERNED (0)
            SSTATE_INTERNED_MORTAL (1)
            SSTATE_INTERNED_IMMORTAL (2)
@@ -169,6 +199,7 @@ typedef struct {
            dictionary to this object are *not* counted in ob_refcnt.
          */
         unsigned int interned:2;
+
         /* Character size:
 
            - PyUnicode_WCHAR_KIND (0):
@@ -197,11 +228,16 @@ typedef struct {
              * at least one character is in the range U+10000-U+10FFFF
          */
         unsigned int kind:3;
+
         /* Compact is with respect to the allocation scheme. Compact unicode
            objects only require one memory block while non-compact objects use
            one block for the PyUnicodeObject struct and another for its data
            buffer. */
+        /*
+        compact: 只使用一个内存块（结构体+字符）来存储，也就是内存是紧凑的，数据紧跟在结构体后面。
+        */
         unsigned int compact:1;
+
         /* The string only contains characters in the range U+0000-U+007F (ASCII)
            and the kind is PyUnicode_1BYTE_KIND. If ascii is set and compact is
            set, use the PyASCIIObject structure. */

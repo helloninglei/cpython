@@ -103,6 +103,15 @@ typedef struct _typeobject PyTypeObject;
  * in addition, be cast to PyVarObject*.
  */
 typedef struct _object {
+    /*
+    python 对象系统的核心
+    ob_refcnt：引用记数，ob_refcnt就是Python的内存管理机制中基于引用计数的垃圾回收机制的对象引用数。
+               在Python中，主要是通过Py_INCREF(op)和Py_DECREF(op)两个宏来增加和减少一个对象的
+               Python引用计数。对于一个对象A，当有一个PyObject *引用了该对象A时，A的引用计数就会增
+               加，而当引用A的这个PyObject *被删除，相应的引用计数就会减少，当对象A的引用计数减到0时，
+               对象A对应的析构函数就会被调用，以释放内存。
+    ob_type：类型对象的指针，ob_type是一个指向_typeobject结构体的指针，用来指定一个类型对象
+    */
     _PyObject_HEAD_EXTRA
     Py_ssize_t ob_refcnt;
     PyTypeObject *ob_type;
@@ -113,6 +122,10 @@ typedef struct _object {
 #define _PyObject_CAST_CONST(op) ((const PyObject*)(op))
 
 typedef struct {
+    /*
+    变长对象PyVarObject相比PyObject多了一个变量ob_size，即变长对象中的中一共容纳了多少个元素。
+    Python中list就是一个PyVarObject对象，如果一个list对象有5个元素，那么ob_size就是5。
+    */
     PyObject ob_base;
     Py_ssize_t ob_size; /* Number of items in variable part */
 } PyVarObject;

@@ -2179,6 +2179,9 @@ unicode_char(Py_UCS4 ch)
 PyObject *
 PyUnicode_FromUnicode(const Py_UNICODE *u, Py_ssize_t size)
 {
+    /*
+    创建字符串对象
+    */
     if (u == NULL) {
         if (size > 0) {
             if (PyErr_WarnEx(PyExc_DeprecationWarning,
@@ -2237,6 +2240,13 @@ PyUnicode_FromWideChar(const wchar_t *u, Py_ssize_t size)
 
     /* Single character Unicode objects in the Latin-1 range are
        shared when using this constructor */
+    /*
+    PyUnicode_FromWideChar函数传入一个c中的字符串和字符串大小size，如果是在Latin-1范围内的单字符字符串，
+    通过get_latin1_char函数直接返回。
+    get_latin1_char实现了一个字符缓冲池，unicode_latin1是一个PyObject指针数组，缓存了单字符字符串对象，
+    如果不在unicode_latin1数组中，则通过PyUnicode_New来创建。PyUnicode_FromWideChar函数中也通过
+    PyUnicode_New来创建字符串对象。
+    */
     if (size == 1 && (Py_UCS4)*u < 256)
         return get_latin1_char((unsigned char)*u);
 
@@ -11386,6 +11396,13 @@ PyUnicode_Contains(PyObject *str, PyObject *substr)
 PyObject *
 PyUnicode_Concat(PyObject *left, PyObject *right)
 {
+    /*
+    c = "a" + "b"
+    进行连接操作是会创建一个新的字符串对象。所以两字符串对象连接会先计算连接后字符串的长度，通过PyUnicode_New来申请内存空间，
+    最后复制两字符串的内存空间数据。
+    这种连接操作作用在N个字符串对象上就显得非常低效率，连接N个字符串对象就需要进行N-1次的内存申请和(N-1)*2次的内存搬运工作，
+    另外还有隐藏的垃圾回收操作。更好的做法是通过join操作来连接。
+    */
     PyObject *result;
     Py_UCS4 maxchar, maxchar2;
     Py_ssize_t left_len, right_len, new_len;
@@ -11782,7 +11799,9 @@ unicode_getitem(PyObject *self, Py_ssize_t index)
 }
 
 /* Believe it or not, this produces the same value for ASCII strings
-   as bytes_hash(). */
+   as bytes_hash(). 
+   不管你信不信，unicode_hash函数计算出和bytes_hash同样的值   
+*/
 static Py_hash_t
 unicode_hash(PyObject *self)
 {
@@ -15382,6 +15401,9 @@ errors defaults to 'strict'.");
 static PyObject *unicode_iter(PyObject *seq);
 
 PyTypeObject PyUnicode_Type = {
+    /*
+    可以看得出来，字符串对象支持数值操作（tp_as_number），序列操作（tp_as_sequence），映射操作（tp_as_mapping）
+    */
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     "str",                        /* tp_name */
     sizeof(PyUnicodeObject),      /* tp_basicsize */
@@ -15479,6 +15501,11 @@ _PyUnicode_InitTypes(void)
 void
 PyUnicode_InternInPlace(PyObject **p)
 {
+    /*
+    Python中维护着一个intarned变量指针，这个变量指向PyDict_New创建的对象，而PyDict_New实际上创建了一个
+    PyDictObject对象，是Python中dict类型的对象。实际上intern机制就是维护一个字典，这个字典中记录着被intern
+    机制处理过的字符串对象，其中PyUnicode_CHECK_INTERNED宏检查字符串对象的state.interned是否被标记。
+    */
     PyObject *s = *p;
 #ifdef Py_DEBUG
     assert(s != NULL);
@@ -15495,6 +15522,7 @@ PyUnicode_InternInPlace(PyObject **p)
         return;
     }
 
+    // 如果字符串对象的state.interned被标记了，就直接返回；
     if (PyUnicode_CHECK_INTERNED(s)) {
         return;
     }
@@ -15513,12 +15541,18 @@ PyUnicode_InternInPlace(PyObject **p)
         }
     }
 
+    // 处尝试把没有被标记的字符串对象s作为key-value加入interned字典中；
     PyObject *t = PyDict_SetDefault(state->interned, s, s);
     if (t == NULL) {
         PyErr_Clear();
         return;
     }
 
+    /*
+    字符串对象s已经在interned字典中（对应的value值是字符串对象t），把存在interned字典中的字符串对象s key对应的
+    value值字符串对象t增加引用计数并返回字符串对象t（通过Py_SETREF宏来改变p指针的指向），且原字符串对象p会因引用
+    计数为零被回收。
+    */
     if (t != s) {
         Py_INCREF(t);
         Py_SETREF(*p, t);
@@ -15528,6 +15562,16 @@ PyUnicode_InternInPlace(PyObject **p)
     /* The two references in interned dict (key and value) are not counted by
        refcnt. unicode_dealloc() and _PyUnicode_ClearInterned() take care of
        this. */
+    /*
+    新加入interned字典中的字符串对象做减引用操作，并把state.interned标记成SSTATE_INTERNED_MORTAL。
+    SSTATE_INTERNED_MORTAL表示字符串对象被intern机制处理，但会随着引用计数被回收；interned标记还有
+    另外一种SSTATE_INTERNED_IMMORTAL，表示被intern机制处理但对象不可销毁，会与Python解释器同在。
+    什么是引用计数-2的操作？
+        对于被intern机制处理了的PyStringObject对象，Python采用了特殊的引用计数机制。在将一个PyStringObject对象a的
+        PyObject指针作为key和value添加到interned中时，PyDictObject对象会通过这两个指针对a的引用计数进行两次加1的操作。
+        但是Python的设计者规定在interned中a的指针不能被视为对象a的有效引用，因为如果是有效引用的话，那么a的引用计数在
+        Python结束之前永远都不可能为0，因为interned中至少有两个指针引用了a，那么删除a就永远不可能了，这显然是没有道理的。
+    */
     Py_SET_REFCNT(s, Py_REFCNT(s) - 2);
     _PyUnicode_STATE(s).interned = SSTATE_INTERNED_MORTAL;
 }
