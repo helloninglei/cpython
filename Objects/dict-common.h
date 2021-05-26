@@ -20,6 +20,45 @@ typedef Py_ssize_t (*dict_lookup_func)
 
 /* See dictobject.c for actual layout of DictKeysObject */
 struct _dictkeysobject {
+    /*
+    实现了Python字典的哈希表
+    给字典my_dict={}添加一个值，key为hello，value为word
+    my_dict['hello'] = 'word'
+
+    # 假设是一个空列表，hash表初始如下
+    indices = [None, None, None, None, None, None]
+    enteies = []
+
+    hash_value = hash('hello')  # 假设值为 12343543
+    index = hash_value & ( len(indices) - 1)  # 假设index值计算后等于3
+
+    # 会找到indices的index为3的位置，并插入enteies的长度
+    indices = [None, None, None, 0, None, None]
+    # 此时enteies会插入第一个元素
+    enteies = [
+        [12343543, 'hello', 'word']
+    ]
+
+    # 我们继续向字典中添加值
+    my_dict['haimeimei'] = 'lihua'
+
+    hash_value = hash('haimeimei')  # 假设值为 34323545
+    index = hash_value & ( len(indices) - 1)  # 假设index值计算后同样等于 0
+
+    # 会找到indices的index为0的位置，并插入enteies的长度
+    indices = [1, None, None, 0, None, None]
+    # 此时enteies会插入第一个元素
+    enteies = [
+        [12343543, 'hello', 'word'],
+        [34323545, 'haimeimei', 'lihua']
+    ]
+
+    dk_indices是实际的哈希表，对应一个slot数组，存储着index。哈希表的每个slot有4种状态：
+        Unused，这是每个slot的初始状态，slot中的index == DKIX_EMPTY，表示该slot没有被使用，这个状态可以转化为Active。
+        Active，index >= 0，index对应到dk_entries的PyDictKeyEntry对象，me_key != NULL 和 me_value != NULL。
+        Dummy，index == DKIX_DUMMY，当dict中一个元素被删除，slot就会从原来的Active状态变成Dummy状态，原先对应的PyDictKeyEntry对象不会被删掉，Dummy可以在key被再次插入的时候转化为Active状态，但是不能转化为Unused状态。这种状态只在combined-table中出现。
+        Pending，index >= 0, key != NULL, and value == NULL，这种状态只在split-table中出现，表示还未插入到split-table中。
+    */
     Py_ssize_t dk_refcnt;
 
     /* Size of the hash table (dk_indices). It must be a power of 2. */
