@@ -383,6 +383,13 @@ class Server(events.AbstractServer):
 
 class BaseEventLoop(events.AbstractEventLoop):
 
+    """
+    _scheduled: 小堆列表，存储的是handle对象，如： events.TimerHandle(when, callback, args, self, context)，
+                由于TimerHandle 自定义了__hash__函数以when为hash值，因此会根据时间排序。
+                TimerHandle对象：
+                    属性：_context，_loop，_callback，_args，_cancelled 等
+                    方法：cancel，_run, when等
+    """
     def __init__(self):
         self._timer_cancelled_count = 0
         self._closed = False
@@ -1812,6 +1819,7 @@ class BaseEventLoop(events.AbstractEventLoop):
         """
 
         sched_count = len(self._scheduled)
+        # 移除被取消的任务
         if (sched_count > _MIN_SCHEDULED_TIMER_HANDLES and
             self._timer_cancelled_count / sched_count >
                 _MIN_CANCELLED_TIMER_HANDLES_FRACTION):
@@ -1834,6 +1842,7 @@ class BaseEventLoop(events.AbstractEventLoop):
                 handle = heapq.heappop(self._scheduled)
                 handle._scheduled = False
 
+        # 如果_ready中有任务，或者_stopping信号被设置了，则轮训时间间隔设置为0
         timeout = None
         if self._ready or self._stopping:
             timeout = 0
@@ -1842,11 +1851,27 @@ class BaseEventLoop(events.AbstractEventLoop):
             when = self._scheduled[0]._when
             timeout = min(max(0, when - self.time()), MAXIMUM_SELECT_TIMEOUT)
 
+        """
+        according to Lib/selectors.py
+        if 'KqueueSelector' in globals():
+            DefaultSelector = KqueueSelector
+        elif 'EpollSelector' in globals():
+            DefaultSelector = EpollSelector
+        elif 'DevpollSelector' in globals():
+            DefaultSelector = DevpollSelector
+        elif 'PollSelector' in globals():
+            DefaultSelector = PollSelector
+        else:
+            DefaultSelector = SelectSelector
+        """
         event_list = self._selector.select(timeout)
+        # 处理结果
         self._process_events(event_list)
 
         # Handle 'later' callbacks that are ready.
         end_time = self.time() + self._clock_resolution
+
+        # _scheduled中所有任务处理完一次后，将其加如到_ready队列中
         while self._scheduled:
             handle = self._scheduled[0]
             if handle._when >= end_time:
@@ -1861,6 +1886,9 @@ class BaseEventLoop(events.AbstractEventLoop):
         # callbacks scheduled by callbacks run this time around --
         # they will be run the next time (after another I/O poll).
         # Use an idiom that is thread-safe without using locks.
+        """
+        所有的回调函数函数都是在这里被调用，通过handle._run()调用回调函数
+        """
         ntodo = len(self._ready)
         for i in range(ntodo):
             handle = self._ready.popleft()

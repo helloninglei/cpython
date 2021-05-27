@@ -20,6 +20,18 @@ enum _framestate {
 typedef signed char PyFrameState;
 
 struct _frame {
+    /*
+    栈帧对象frame底层实现 源码分析(https://blog.csdn.net/qq_31720329/article/details/86757892)
+    f_back: 上一个栈帧
+    f_code: 代码段对象
+    f_builtins: 内建变量表(字典对象)
+    f_globals: 全局变量表(字典对象)
+    f_locals: 局部变量表
+    f_valuestack: 栈底位置
+    f_gen: 专为生成器设计的指针
+    f_lasti: 运行的上一个字节码位置
+    f_lineno: 运行字节码对应的python源代码的行数
+    */
     PyObject_VAR_HEAD
     struct _frame *f_back;      /* previous frame, or NULL */
     PyCodeObject *f_code;       /* code segment */

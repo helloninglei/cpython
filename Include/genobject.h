@@ -13,6 +13,13 @@ extern "C" {
 
 /* _PyGenObject_HEAD defines the initial segment of generator
    and coroutine objects. */
+/*
+生成器,协程的基础。生成器的语法规则比较特殊，长得像个函数，但是调用之后却返回一个生成器对象。所以他的结构体定义也比较特殊，是一个宏。
+其中最重要的 是 prefix_frame, ## 是连接符。它指向了一个 PyFrameObject 对象，就是该生成器的上下文。
+
+    _frame: 指向生成器上下文的指针
+    _code: 生成器的字节码
+*/
 #define _PyGenObject_HEAD(prefix)                                           \
     PyObject_HEAD                                                           \
     /* Note: gi_frame can be NULL if the generator is "finished" */         \

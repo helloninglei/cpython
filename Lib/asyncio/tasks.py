@@ -73,7 +73,7 @@ def _set_task_name(task, name):
 
 class Task(futures._PyFuture):  # Inherit Python Task implementation
                                 # from a Python Future implementation.
-
+    """继承futures.Future"""
     """A coroutine wrapped in a Future."""
 
     # An important invariant maintained while a Task not done:
@@ -680,6 +680,19 @@ class _GatheringFuture(futures.Future):
 
 
 def gather(*coros_or_futures, return_exceptions=False):
+    """
+    从给定的coroutines/futures对象返回一个聚合结果。协程将包装在future中，并安排在事件循环中。
+    它们不一定会按照传入的顺序安排。所有未来必须共享同一事件循环。
+
+    如果所有任务都成功完成，则返回的future的结果就是结果列表（按照原始序列的顺序，而不一定按照结果到达的顺序）。
+    如果 *return_exceptions* 为True，则将任务中的异常视为成功结果，并在结果列表中收集；否则，第一个引发的异常将立即返回。
+    
+    取消：如果外部Future被取消，所有子级（尚未完成）也被取消。如果任何子级被取消，这将被视为引发了cancelederror——在这种情况下，
+    外部未来是不取消的(这是为了防止取消一个子项导致其他子项被取消。）
+    
+    如果 *return_exceptions* 为False，则在标记为done之后取消gather()不会取消任何提交的等待项。例如，在向调用者传播异常之后，
+    可以将gather标记为done，因此，在从gather捕获异常（由一个等待项引发）之后调用``gather.cancel（）``不会取消任何其他等待项。
+    """
     """Return a future aggregating results from the given coroutines/futures.
 
     Coroutines will be wrapped in a future and scheduled in the event

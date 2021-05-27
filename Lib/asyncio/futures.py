@@ -44,6 +44,19 @@ class Future:
 
     (In Python 3.4 or later we may be able to unify the implementations.)
     """
+    """
+    属性：
+        _loop: 属性表示所属的EventLoop
+        _result: 属性保存该任务的执行结果
+        _callbacks: 列表属性保存添加到该future对象中的回调方法
+    方法：
+        add_done_callback: 用于注册回调
+        set_result: 方法用于在任务执行完成之后设置执行结果，并且会调用__schedule_callbacks()方法将注册的回调方法都依次执行一遍。
+                    这里执行回调方法并不是直接调用，而是通过call_soon方法在EventLoop中注册一个handle，这样在EventLoop的最近一
+                    次循环中就会执行该回调方法。
+        __await__: 使得future对象awaitable，可用await修饰符修饰，在该方法中将future对象自身通过yield返回
+
+    """
 
     # Class variables serving as defaults for instance variables.
     _state = _PENDING
@@ -142,6 +155,10 @@ class Future:
         return exc
 
     def cancel(self, msg=None):
+        """
+        取消期物，并且执行回调。如果期物已经 done 或者 cancelled，返回 False。
+        变更期物的状态，通知事件循环去安排回调，并且返回 True
+        """
         """Cancel the future and schedule callbacks.
 
         If the future is already done or cancelled, return False.  Otherwise,
@@ -157,6 +174,9 @@ class Future:
         return True
 
     def __schedule_callbacks(self):
+        """
+        通知事件循环尽快的执行回调，清空 callback 列表
+        """
         """Internal: Ask the event loop to call all callbacks.
 
         The callbacks are scheduled to be called as soon as possible. Also
@@ -185,6 +205,9 @@ class Future:
         return self._state != _PENDING
 
     def result(self):
+        """
+        不会阻塞等待期物的执行，如果期物的状态非 _FINISHED，则 raise 对应的错误。如果 _exception 值存在，则 raise 对应的值，否则返回 _result值
+        """
         """Return the result this future represents.
 
         If the future has been cancelled, raises CancelledError.  If the
@@ -202,6 +225,9 @@ class Future:
         return self._result
 
     def exception(self):
+        """
+        不会阻塞等待期物的执行，如果期物的状态非 _FINISHED，则 raise 对应的错误。返回 _exception 值
+        """
         """Return the exception that was set on this future.
 
         The exception (or None if no exception was set) is returned only if
@@ -218,6 +244,10 @@ class Future:
         return self._exception
 
     def add_done_callback(self, fn, *, context=None):
+        """
+        给期物运行完毕添加方法回调
+        如果期物已经运行完毕，则立即回调
+        """
         """Add a callback to be run when the future becomes done.
 
         The callback is called with a single argument - the future object. If
@@ -234,6 +264,9 @@ class Future:
     # New method not in PEP 3148.
 
     def remove_done_callback(self, fn):
+       """
+        移除指定回调
+        """
         """Remove all instances of a callback from the "call when done" list.
 
         Returns the number of callbacks removed.
@@ -249,6 +282,9 @@ class Future:
     # So-called internal methods (note: no set_running_or_notify_cancel()).
 
     def set_result(self, result):
+        """
+        标记期物运行结束，设置 _result 值，如果在期物运行结束时调用这个方法，则 raise InvalidStateError
+        """
         """Mark the future done and set its result.
 
         If the future is already done when this method is called, raises
@@ -261,6 +297,9 @@ class Future:
         self.__schedule_callbacks()
 
     def set_exception(self, exception):
+        """
+        标记期物运行结束，设置 _exception 值，如果在期物运行结束时调用这个方法，则 raise InvalidStateError
+        """
         """Mark the future done and set an exception.
 
         If the future is already done when this method is called, raises
