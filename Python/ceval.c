@@ -1143,7 +1143,7 @@ PyEval_EvalCode(PyObject *co, PyObject *globals, PyObject *locals)
 
 
 /* Interpreter main loop */
-
+// 运行时环境主循环
 PyObject *
 PyEval_EvalFrame(PyFrameObject *f)
 {
@@ -1715,7 +1715,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
        caller loses its exception */
     assert(!_PyErr_Occurred(tstate));
 #endif
-
+    // 不断执行栈中的指令
     for (;;) {
         assert(stack_pointer >= f->f_valuestack); /* else underflow */
         assert(STACK_LEVEL() <= co->co_stacksize);  /* else overflow */
@@ -1809,7 +1809,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 #endif
         dxp[opcode]++;
 #endif
-
+        // 根据不同的指令执行对应的逻辑
         switch (opcode) {
 
         /* BEWARE!
@@ -1834,10 +1834,14 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         }
 
         case TARGET(LOAD_CONST): {
+            /*
+            LOAD_CONST指令的操作从consts元组中读取下标oparg的PyObject对象value，然后push压入“运行时栈”。
+            这个指令只改变了“运行时栈”，对local名字空间没有任何影响。
+            */
             PREDICTED(LOAD_CONST);
-            PyObject *value = GETITEM(consts, oparg);
-            Py_INCREF(value);
-            PUSH(value);
+            PyObject *value = GETITEM(consts, oparg); //consts对应co.co_consts常量集合，oparg是指令操作参数。
+            Py_INCREF(value); // 引用数+1
+            PUSH(value);  // 将变量push到栈中
             DISPATCH();
         }
 
@@ -2399,6 +2403,9 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         }
 
         case TARGET(RETURN_VALUE): {
+            /*
+            实际的返回值存在retval中，是从“运行时栈”中取得的。
+            */
             retval = POP();
             assert(EMPTY());
             f->f_state = FRAME_RETURNED;
@@ -2759,6 +2766,10 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         }
 
         case TARGET(STORE_NAME): {
+            /*
+            STORE_NAME指令从names符号集合(co.co_names)中读取对应的变量名name，
+            然后pop出栈操作获取变量值v，将a -> 0这样的映射关系添加到local名字空间(f->f_locals)中。
+            */
             PyObject *name = GETITEM(names, oparg);
             PyObject *v = POP();
             PyObject *ns = f->f_locals;
@@ -2780,6 +2791,8 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         }
 
         case TARGET(DELETE_NAME): {
+            // 将变量从f_locals中删除
+            
             PyObject *name = GETITEM(names, oparg);
             PyObject *ns = f->f_locals;
             int err;
@@ -3168,6 +3181,11 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         }
 
         case TARGET(BUILD_LIST): {
+            /*
+            BUILD_LIST指令，将会创建一个oparg大小的list，然后依次出栈加入到新创建的PyListObject对象中。
+            所以可以推测，如果oparg参数不为0的话，在BUILD_LIST指令之前一定会有许多LOAD_CONST的操作，LOAD_CONST指令压栈的对象就是list中的元素。
+            新创建的PyListObject对象最后还会被压入栈中。
+            */
             PyObject *list =  PyList_New(oparg);
             if (list == NULL)
                 goto error;
@@ -3244,6 +3262,13 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         }
 
         case TARGET(BUILD_MAP): {
+            /*
+            BUILD_MAP指令通过_PyDict_NewPresized创建一个PyDictObject对象：
+            oparg参数表示了有多少对(key, value)元素。
+            _PyDict_NewPresized主要是计算新创建的PyDictObject对象需要的内存大小。            
+            key和value分别通过PEEK(2*i)和PEEK(2*i - 1)宏来读取，可见BUILD_MAP之前的LOAD_CONST指令应该也是成对出现的。
+            最后成对出栈，PyDictObject对象再压入栈中。
+            */
             Py_ssize_t i;
             PyObject *map = _PyDict_NewPresized((Py_ssize_t)oparg);
             if (map == NULL)
