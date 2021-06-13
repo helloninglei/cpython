@@ -140,6 +140,7 @@ PyObject *
 PyList_New(Py_ssize_t size)
 {
     /*
+    创建列表
     */
     if (size < 0) {
         PyErr_BadInternalCall();

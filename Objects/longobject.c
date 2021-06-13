@@ -168,7 +168,10 @@ _PyLong_Copy(PyLongObject *src)
 }
 
 /* Create a new int object from a C long int */
-
+/*
+整数对象的创建
+如果是小整数，则从小整数对象池获取。否则使用通用的_PyLong_New创建
+*/
 PyObject *
 PyLong_FromLong(long ival)
 {
@@ -5705,6 +5708,9 @@ PyLong_GetInfo(void)
     return int_info;
 }
 
+/*
+小整数池的初始化，属于小整数范围内的整数会都会被创建好保存到small_ints中。
+*/
 int
 _PyLong_Init(PyInterpreterState *interp)
 {

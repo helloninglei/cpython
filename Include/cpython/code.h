@@ -17,28 +17,28 @@ typedef struct _PyOpcache _PyOpcache;
 /* Bytecode object */
 struct PyCodeObject {
     PyObject_HEAD
-    int co_argcount;            /* #arguments, except *args */
+    int co_argcount;            /* #arguments, except *args */ // 位置参数个数, 即*args个数
     int co_posonlyargcount;     /* #positional only arguments */
     int co_kwonlyargcount;      /* #keyword only arguments */
-    int co_nlocals;             /* #local variables */
-    int co_stacksize;           /* #entries needed for evaluation stack */
+    int co_nlocals;             /* #local variables */  // 局部变量个数
+    int co_stacksize;           /* #entries needed for evaluation stack */ // 执行该代码段需要的栈空间大小
     int co_flags;               /* CO_..., see below */
-    int co_firstlineno;         /* first source line number */
-    PyObject *co_code;          /* instruction opcodes */
-    PyObject *co_consts;        /* list (constants used) */
-    PyObject *co_names;         /* list of strings (names used) */
-    PyObject *co_varnames;      /* tuple of strings (local variable names) */
-    PyObject *co_freevars;      /* tuple of strings (free variable names) */
-    PyObject *co_cellvars;      /* tuple of strings (cell variable names) */
+    int co_firstlineno;         /* first source line number */ // 代码段起始行对应py文件的行号
+    PyObject *co_code;          /* instruction opcodes */ // 编译后的字节码指令序列
+    PyObject *co_consts;        /* list (constants used) */ // 保存着代码段中所有的常量
+    PyObject *co_names;         /* list of strings (names used) */ // 保存该代码段中所有的符号
+    PyObject *co_varnames;      /* tuple of strings (local variable names) */ // 变量名集合
+    PyObject *co_freevars;      /* tuple of strings (free variable names) */ //  实现闭包需要用到的东西
+    PyObject *co_cellvars;      /* tuple of strings (cell variable names) */ // 内部嵌套函数所引用的局部变量名集合
     /* The rest aren't used in either hash or comparisons, except for co_name,
        used in both. This is done to preserve the name and line number
        for tracebacks and debuggers; otherwise, constant de-duplication
        would collapse identical functions/lambdas defined on different lines.
     */
     Py_ssize_t *co_cell2arg;    /* Maps cell vars which are arguments. */
-    PyObject *co_filename;      /* unicode (where it was loaded from) */
-    PyObject *co_name;          /* unicode (name, for reference) */
-    PyObject *co_linetable;     /* string (encoding addr<->lineno mapping) See
+    PyObject *co_filename;      /* unicode (where it was loaded from) */ // 代码段所对应的完整文件路径
+    PyObject *co_name;          /* unicode (name, for reference) */ // 代码块的名称，通常是类名或者函数名
+    PyObject *co_linetable;     /* string (encoding addr<->lineno mapping) See // 字节指令码偏移量与源代码的行号对应关系
                                    Objects/lnotab_notes.txt for details. */
     PyObject *co_exceptiontable; /* Byte string encoding exception handling table */
     void *co_zombieframe;       /* for optimization only (see frameobject.c) */

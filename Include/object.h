@@ -7,7 +7,6 @@ extern "C" {
 
 
 /* Object and type object interface */
-
 /*
 Objects are structures allocated on the heap.  Special rules apply to
 the use of objects to ensure they are properly garbage-collected.
@@ -16,11 +15,16 @@ accessed through special macros and functions only.  (Type objects are
 exceptions to the first rule; the standard types are represented by
 statically initialized type objects, although work on type/class unification
 for Python 2.2 made it possible to have heap-allocated type objects too).
+对象是一种分配在堆上的数据结构。它们使用特殊规来确保它们能够被正确地进行垃圾回收。
+对象不会被静态分配也不会出现在栈上，他们只能通过特殊宏和函数访问。
+不过类型对象是第一种情况的例外情况，因为内置对象都是被静态初始化的对象。
 
 An object has a 'reference count' that is increased or decreased when a
 pointer to the object is copied or deleted; when the reference count
 reaches zero there are no references to the object left and it can be
 removed from the heap.
+指向对象的指针被复制时对象的“引用计数”会增加，在删除指向对象的指针时“引用计数”会减少。
+当““引用计数”变为0时，表示没有这个对象的引用了，因此该对象可以从堆上移除。
 
 An object has a 'type' that determines what it represents and what kind
 of data it contains.  An object's type is fixed when it is created.
@@ -28,6 +32,10 @@ Types themselves are represented as objects; an object contains a
 pointer to the corresponding type object.  The type itself has a type
 pointer pointing to the object representing the type 'type', which
 contains a pointer to itself!.
+每个对象有一个“类型”，类型决定它可以有什么特征表现和它容纳了什么类型的数据。
+对象的类型在创建时是固定的。类型本身被表示为对象。每个对象中包含了一个指向对应类型的指针。
+类型对象本身也有一个指向自身的type类型的指针
+
 
 Objects do not float around in memory; once allocated an object keeps
 the same size and address.  Objects that must hold variable-size data
@@ -37,6 +45,10 @@ after allocation.  (These restrictions are made so a reference to an
 object can be simply a pointer -- moving an object would require
 updating all the pointers, and changing an object's size would require
 moving it if there was another object right next to it.)
+对象的大小不会在内存中进行调整；一旦分配了一个对象，那么它的大小和地址就固定了。
+对于必须包含可变大小数据的对象，可以包含指向对象的可变大小部分的指针。并不是全部
+同一类型对象的大小都相同；但是在对象被分配内存之后，大小不能改变。
+(由于有这些限制的存在，因此一个指向对象的引用可以只是一个指针）
 
 Objects are always accessed through pointers of the type 'PyObject *'.
 The type 'PyObject' is a structure that only contains the reference count
@@ -47,9 +59,15 @@ with the reference count and type fields; the macro PyObject_HEAD should be
 used for this (to accommodate for future changes).  The implementation
 of a particular object type can cast the object pointer to the proper
 type and back.
+对象总是通过类型为“PyObject*”的指针进行访问。类型“PyObject”是只包含引用计数和类型指针的结构。
+为对象包含的其他数据分配的实际内存只能通过转换指向对象内存中的longer指针类型后才能访问。
+longer类型必须引用计数和类型字段为起始。宏PyObject_HEAD也会被使用（以适应将来的更改）。
+这样做可以让对象指向一个所对应的类型。
 
 A standard interface exists for objects that contain an array of items
 whose size is determined when the object is allocated.
+对于包含项数组的对象，存在一个标准接口
+其大小在分配对象时确定。
 */
 
 /* Py_DEBUG implies Py_REF_DEBUG. */
@@ -123,8 +141,8 @@ typedef struct _object {
 
 typedef struct {
     /*
-    变长对象PyVarObject相比PyObject多了一个变量ob_size，即变长对象中的中一共容纳了多少个元素。
-    Python中list就是一个PyVarObject对象，如果一个list对象有5个元素，那么ob_size就是5。
+    变长对象PyVarObject相比PyObject多了一个变量ob_size，即变长对象中的中一共容纳了多少个元素(不是字节的数量)。
+    Python中str,list都是PyVarObject对象，如果一个list对象有5个元素，那么ob_size就是5。
     */
     PyObject ob_base;
     Py_ssize_t ob_size; /* Number of items in variable part */
