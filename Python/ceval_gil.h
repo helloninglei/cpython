@@ -1,6 +1,7 @@
 /*
  * Implementation of the Global Interpreter Lock (GIL).
  */
+/*全局解释器锁（Global Interpreter Lock，GIL）的接口*/
 
 #include <stdlib.h>
 #include <errno.h>

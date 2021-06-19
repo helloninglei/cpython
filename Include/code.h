@@ -1,4 +1,5 @@
 /* Definitions for bytecode */
+/*包含字节码相关的底层抽象*/
 
 #ifndef Py_CODE_H
 #define Py_CODE_H

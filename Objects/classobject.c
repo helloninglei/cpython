@@ -1,5 +1,5 @@
 /* Class object implementation (dead now except for methods) */
-
+/*类对象实现*/
 #include "Python.h"
 #include "pycore_object.h"
 #include "pycore_pyerrors.h"

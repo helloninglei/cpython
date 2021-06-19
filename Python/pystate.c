@@ -1,6 +1,6 @@
 
 /* Thread and interpreter state structures and their interfaces */
-
+/*线程状态与解释器状态，以及它们的接口实现。*/
 #include "Python.h"
 #include "pycore_ceval.h"
 #include "pycore_initconfig.h"

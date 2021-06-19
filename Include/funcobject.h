@@ -34,6 +34,14 @@ typedef struct {
  */
 
 typedef struct {
+    /*
+    函数对象
+    func_doc: 是一个用来解释函数作用的 unicode 对象
+    func_dict: 是一个字典对象, 存储了这个对象的属性
+    func_module: 表示了这个对象所属的/相关联的模块
+    func_annotations: https://www.python.org/dev/peps/pep-3107/
+    vectorcall: 可执行的对象，函数的主要内容都封装在此
+    */
     PyObject_HEAD
     COMMON_FIELDS(func_)
     PyObject *func_doc;         /* The __doc__ attribute, can be anything */

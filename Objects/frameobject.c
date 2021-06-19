@@ -1,5 +1,5 @@
 /* Frame object implementation */
-
+/*Frame对象实现*/
 #include "Python.h"
 #include "pycore_ceval.h"         // _PyEval_BuiltinsFromGlobals()
 #include "pycore_moduleobject.h"  // _PyModule_GetDict()

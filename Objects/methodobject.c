@@ -1,6 +1,6 @@
 
 /* Method object implementation */
-
+/*方法对象实现*/
 #include "Python.h"
 #include "pycore_ceval.h"         // _Py_EnterRecursiveCall()
 #include "pycore_object.h"

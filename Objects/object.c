@@ -1,6 +1,6 @@
 
 /* Generic object operations; and implementation of None */
-
+/*通用对象操作的实现*/
 #include "Python.h"
 #include "pycore_ceval.h"         // _Py_EnterRecursiveCall()
 #include "pycore_context.h"

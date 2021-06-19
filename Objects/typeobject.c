@@ -1,5 +1,5 @@
 /* Type object implementation */
-
+/*Type对象实现*/
 #include "Python.h"
 #include "pycore_call.h"
 #include "pycore_compile.h"       // _Py_Mangle()

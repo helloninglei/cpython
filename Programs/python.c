@@ -1,5 +1,5 @@
 /* Minimal main program -- everything is loaded from the library */
-
+/*C语言的入口函数main*/
 #include "Python.h"
 
 #ifdef MS_WINDOWS

@@ -1,3 +1,4 @@
+/*内存分配相关实现*/
 #include "Python.h"
 #include "pycore_pymem.h"         // _PyTraceMalloc_Config
 

@@ -1,4 +1,5 @@
 /* Execute compiled code */
+/* 负责运行编译之后的代码 */
 
 /* XXX TO DO:
    XXX speed up searching for keywords by using a dictionary
@@ -2035,6 +2036,9 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         }
 
         case TARGET(BINARY_ADD): {
+            /*
+            加法操作
+            */
             PyObject *right = POP();
             PyObject *left = TOP();
             PyObject *sum;
@@ -2908,6 +2912,10 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         }
 
         case TARGET(LOAD_NAME): {
+            /*
+            会依次在多个命名空间中搜索
+            f_locals --> f_globals --> f_builtins
+            */
             PyObject *name = GETITEM(names, oparg);
             PyObject *locals = f->f_locals;
             PyObject *v;
@@ -4259,6 +4267,10 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
             DISPATCH();
         }
         case TARGET(CALL_FUNCTION): {
+            /*
+            函数调用
+            oparg: 参数个数，包括位置参数和键参数
+            */
             PREDICTED(CALL_FUNCTION);
             PyObject **sp, *res;
             sp = stack_pointer;
@@ -4931,6 +4943,7 @@ _PyEval_MakeFrameVector(PyThreadState *tstate,
     /* Create a dictionary for keyword parameters (**kwags) */
     PyObject *kwdict;
     Py_ssize_t i;
+    // CO_VARKEYWORDS 表示存在**kwargs类型的参数
     if (co->co_flags & CO_VARKEYWORDS) {
         kwdict = PyDict_New();
         if (kwdict == NULL)
@@ -4947,6 +4960,7 @@ _PyEval_MakeFrameVector(PyThreadState *tstate,
 
     /* Copy all positional arguments into local variables */
     Py_ssize_t j, n;
+    //表示函数调用时传递了扩展位置参数
     if (argcount > co->co_argcount) {
         n = co->co_argcount;
     }
@@ -5041,6 +5055,7 @@ _PyEval_MakeFrameVector(PyThreadState *tstate,
     }
 
     /* Check the number of positional arguments */
+    // CO_VARARGS 表示存在*args类型的参数
     if ((argcount > co->co_argcount) && !(co->co_flags & CO_VARARGS)) {
         too_many_positional(tstate, co, argcount, con->fc_defaults, fastlocals,
                             con->fc_qualname);
@@ -5048,6 +5063,7 @@ _PyEval_MakeFrameVector(PyThreadState *tstate,
     }
 
     /* Add missing positional arguments (copy default values from defs) */
+    // 判断是否使用参数的默认值，当调用函数时传递的参数小于编译函数时函数指定的参数时
     if (argcount < co->co_argcount) {
         Py_ssize_t defcount = con->fc_defaults == NULL ? 0 : PyTuple_GET_SIZE(con->fc_defaults);
         Py_ssize_t m = co->co_argcount - defcount;
@@ -5188,6 +5204,7 @@ _PyEval_Vector(PyThreadState *tstate, PyFrameConstructor *con,
                PyObject* const* args, size_t argcount,
                PyObject *kwnames)
 {
+    // 创建新的PyFrameObject
     PyFrameObject *f = _PyEval_MakeFrameVector(
         tstate, con, locals, args, argcount, kwnames);
     if (f == NULL) {
@@ -5223,6 +5240,14 @@ PyEval_EvalCodeEx(PyObject *_co, PyObject *globals, PyObject *locals,
                   PyObject *const *defs, int defcount,
                   PyObject *kwdefs, PyObject *closure)
 {
+    /*
+    globals: 全局变量
+    locals: 局部变量
+    args:位置参数      argcount: 位置参数数量
+    kws :键参数        kwcount : 键参数数量
+    defs:默认参数元组  defcount : 默认参数数量
+    closure: 闭包变量
+    */
     PyThreadState *tstate = _PyThreadState_GET();
     PyObject *res;
     PyObject *defaults = _PyTuple_FromArray(defs, defcount);
@@ -5287,6 +5312,7 @@ PyEval_EvalCodeEx(PyObject *_co, PyObject *globals, PyObject *locals,
         .fc_kwdefaults = kwdefs,
         .fc_closure = closure
     };
+    // 执行函数
     res = _PyEval_Vector(tstate, &constr, locals,
                          allargs, argcount,
                          kwnames);
@@ -5994,6 +6020,9 @@ trace_call_function(PyThreadState *tstate,
 
 /* Issue #29227: Inline call_function() into _PyEval_EvalFrameDefault()
    to reduce the stack consumption. */
+/*
+函数调用
+*/
 Py_LOCAL_INLINE(PyObject *) _Py_HOT_FUNCTION
 call_function(PyThreadState *tstate,
               PyTraceInfo *trace_info,
@@ -6001,6 +6030,13 @@ call_function(PyThreadState *tstate,
               Py_ssize_t oparg,
               PyObject *kwnames)
 {
+    /*
+    pp_stack: 当前运行时的栈顶指针
+    func: 函数对象
+    oparg: 参数个数，包括位置参数和键参数
+    nkwargs: 键参数个数
+    nargs: 位置参数个数
+    */
     PyObject **pfunc = (*pp_stack) - oparg - 1;
     PyObject *func = *pfunc;
     PyObject *x, *w;

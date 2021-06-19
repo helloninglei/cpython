@@ -1,5 +1,5 @@
 /* Abstract Object Interface (many thanks to Jim Fulton) */
-
+/*抽象对象的接口实现*/
 #include "Python.h"
 #include "pycore_abstract.h"      // _PyIndex_Check()
 #include "pycore_ceval.h"         // _Py_EnterRecursiveCall()

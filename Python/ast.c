@@ -2,6 +2,7 @@
  * This file exposes PyAST_Validate interface to check the integrity
  * of the given abstract syntax tree (potentially constructed manually).
  */
+/*将具体语法树转换成抽象语法树，主要函数是PyAST_FromNode()*/
 #include "Python.h"
 #include "pycore_ast.h"           // asdl_stmt_seq
 #include "pycore_pystate.h"       // _PyThreadState_GET()

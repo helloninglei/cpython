@@ -1,5 +1,5 @@
 /* Python interpreter top-level routines, including init/exit */
-
+/*Python解释器的顶层代码，包括解释器的初始化以及退出。*/
 #include "Python.h"
 
 #include "pycore_ceval.h"         // _PyEval_FiniGIL()

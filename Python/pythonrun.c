@@ -1,6 +1,9 @@
 
 /* Top level execution of Python code (including in __main__) */
-
+/*
+Python解释器的顶层代码，包括解释器的初始化以及退出。
+pylifecycle.c和pythonrun.c的功能是类似的，实际上查阅Python开发历史记录能发现前者是因为开发需要从后者分离出来的。
+*/
 /* To help control the interfaces between the startup, execution and
  * shutdown code, the phases are split across separate modules (boostrap,
  * pythonrun, shutdown)

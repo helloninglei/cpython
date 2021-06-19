@@ -20,6 +20,7 @@
  * structure takes care of releasing those.  Use the arena to manage
  * objects.
  */
+/*将抽象语法树编译成Python字节码*/
 
 #include "Python.h"
 #include "pycore_ast.h"           // _PyAST_GetDocString()

@@ -1,6 +1,9 @@
 /* The PyObject_ memory family:  high-level object memory interfaces.
    See pymem.h for the low-level PyMem_ family.
 */
+/*
+跟内存相关的抽象对象高层接口，如内存分配，初始化，垃圾回收等等。
+*/
 
 #ifndef Py_OBJIMPL_H
 #define Py_OBJIMPL_H

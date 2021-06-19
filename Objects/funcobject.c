@@ -1,6 +1,6 @@
 
 /* Function object implementation */
-
+/*函数对象实现*/
 #include "Python.h"
 #include "pycore_ceval.h"         // _PyEval_BuiltinsFromGlobals()
 #include "pycore_object.h"        // _PyObject_GC_UNTRACK()

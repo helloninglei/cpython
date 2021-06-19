@@ -1,3 +1,4 @@
+/*抽象语法树的编译接口*/
 #ifndef Py_COMPILE_H
 #define Py_COMPILE_H
 #ifdef __cplusplus

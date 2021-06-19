@@ -1,6 +1,6 @@
 
 /* Module object implementation */
-
+/*模块对象实现*/
 #include "Python.h"
 #include "pycore_interp.h"        // PyInterpreterState.importlib
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
