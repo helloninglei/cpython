@@ -82,12 +82,17 @@ _PyRun_AnyFileObject(FILE *fp, PyObject *filename, int closeit,
     }
 
     int res;
+
+    //根据fp是否代表交互环境，对程序进行流程控制
+
+    //如果是交互环境，那么调用PyRun_InteractiveLoopFlags
     if (_Py_FdIsInteractive(fp, filename)) {
         res = _PyRun_InteractiveLoopObject(fp, filename, flags);
         if (closeit) {
             fclose(fp);
         }
     }
+    //否则说明是一个普通的python脚本，执行PyRun_SimpleFileExFlags
     else {
         res = _PyRun_SimpleFileObject(fp, filename, closeit, flags);
     }
@@ -120,7 +125,7 @@ PyRun_AnyFileExFlags(FILE *fp, const char *filename, int closeit,
     return res;
 }
 
-
+//交互式运行
 int
 _PyRun_InteractiveLoopObject(FILE *fp, PyObject *filename, PyCompilerFlags *flags)
 {
@@ -129,11 +134,13 @@ _PyRun_InteractiveLoopObject(FILE *fp, PyObject *filename, PyCompilerFlags *flag
         flags = &local_flags;
     }
 
+    //设置交互式提示符 >>>
     PyObject *v = _PySys_GetObjectId(&PyId_ps1);
     if (v == NULL) {
         _PySys_SetObjectId(&PyId_ps1, v = PyUnicode_FromString(">>> "));
         Py_XDECREF(v);
     }
+    //设置交互式提示符 ...
     v = _PySys_GetObjectId(&PyId_ps2);
     if (v == NULL) {
         _PySys_SetObjectId(&PyId_ps2, v = PyUnicode_FromString("... "));
@@ -146,6 +153,9 @@ _PyRun_InteractiveLoopObject(FILE *fp, PyObject *filename, PyCompilerFlags *flag
     int err = 0;
     int ret;
     int nomem_count = 0;
+    	
+    //这里就进入了交互式环境，每次都调用了PyRun_InteractiveOneObjectEx
+    //直到下面的ret != E_EOF不成立 停止循环，一般情况就是我们输入exit()
     do {
         ret = PyRun_InteractiveOneObjectEx(fp, filename, flags);
         if (ret == -1 && PyErr_Occurred()) {
@@ -194,6 +204,10 @@ PyRun_InteractiveLoopFlags(FILE *fp, const char *filename, PyCompilerFlags *flag
 
 /* A PyRun_InteractiveOneObject() auxiliary function that does not print the
  * error on failure. */
+/*
+CPython 的交互式循环为每个输入调用 PyRun_InteractiveOneObjectEx()
+在run_mod之前，python会将__main__中维护的PyDictObject对象取出，作为参数传递给run_mod，这个参数关系极为重要，实际上这里的参数d就将作为Python虚拟机开始执行时当前活动的frame对象的local名字空间和global名字空间。
+*/
 static int
 PyRun_InteractiveOneObjectEx(FILE *fp, PyObject *filename,
                              PyCompilerFlags *flags)
@@ -248,6 +262,7 @@ PyRun_InteractiveOneObjectEx(FILE *fp, PyObject *filename,
             }
         }
     }
+    // 申请内存
     arena = _PyArena_New();
     if (arena == NULL) {
         Py_XDECREF(v);
@@ -255,7 +270,7 @@ PyRun_InteractiveOneObjectEx(FILE *fp, PyObject *filename,
         Py_XDECREF(oenc);
         return -1;
     }
-
+    //生成抽象语法树
     mod = _PyParser_ASTFromFile(fp, filename, enc, Py_single_input,
                                 ps1, ps2, flags, &errcode, arena);
 
@@ -270,13 +285,21 @@ PyRun_InteractiveOneObjectEx(FILE *fp, PyObject *filename,
         }
         return -1;
     }
+    //获取<module __main__>中维护的dict
     m = PyImport_AddModuleObject(mod_name);
     if (m == NULL) {
         _PyArena_Free(arena);
         return -1;
     }
+    /*
+    将__main__中维护的PyDictObject对象取出，作为参数传递给run_mod，
+    这个参数关系极为重要，实际上这里的参数d就将作为Python虚拟机开始执行时当前活动的frame对象
+    的local名字空间和global名字空间。
+    */
     d = PyModule_GetDict(m);
+    //执行用户输入的python语句
     v = run_mod(mod, filename, d, d, flags, arena);
+    // 释放内存区域
     _PyArena_Free(arena);
     if (v == NULL) {
         return -1;
@@ -403,12 +426,13 @@ _PyRun_SimpleFileObject(FILE *fp, PyObject *filename, int closeit,
 {
     PyObject *m, *d, *v;
     int set_file_name = 0, ret = -1;
-
+    //__main__就是当前文件
     m = PyImport_AddModule("__main__");
     if (m == NULL)
         return -1;
     Py_INCREF(m);
     d = PyModule_GetDict(m);
+    //在__main__中设置__file__属性
     if (_PyDict_GetItemStringWithError(d, "__file__") == NULL) {
         if (PyErr_Occurred()) {
             goto done;
@@ -426,14 +450,14 @@ _PyRun_SimpleFileObject(FILE *fp, PyObject *filename, int closeit,
     if (pyc < 0) {
         goto done;
     }
-
+    //如果是pyc
     if (pyc) {
         FILE *pyc_fp;
         /* Try to run a pyc file. First, re-open in binary */
         if (closeit) {
             fclose(fp);
         }
-
+        //二进制模式打开
         pyc_fp = _Py_fopen_obj(filename, "rb");
         if (pyc_fp == NULL) {
             fprintf(stderr, "python: Can't reopen .pyc file\n");
@@ -455,6 +479,7 @@ _PyRun_SimpleFileObject(FILE *fp, PyObject *filename, int closeit,
             ret = -1;
             goto done;
         }
+        //执行脚本文件
         v = pyrun_file(fp, filename, Py_file_input, d, d,
                        closeit, flags);
     }
@@ -479,7 +504,7 @@ _PyRun_SimpleFileObject(FILE *fp, PyObject *filename, int closeit,
     return ret;
 }
 
-
+// 直接运行脚本
 int
 PyRun_SimpleFileExFlags(FILE *fp, const char *filename, int closeit,
                         PyCompilerFlags *flags)
@@ -1191,12 +1216,14 @@ static PyObject *
 pyrun_file(FILE *fp, PyObject *filename, int start, PyObject *globals,
            PyObject *locals, int closeit, PyCompilerFlags *flags)
 {
+    //申请python 内存
     PyArena *arena = _PyArena_New();
     if (arena == NULL) {
         return NULL;
     }
 
     mod_ty mod;
+    //编译
     mod = _PyParser_ASTFromFile(fp, filename, NULL, start, NULL, NULL,
                                 flags, NULL, arena);
 
@@ -1206,6 +1233,7 @@ pyrun_file(FILE *fp, PyObject *filename, int start, PyObject *globals,
 
     PyObject *ret;
     if (mod != NULL) {
+        //执行
         ret = run_mod(mod, filename, globals, locals, flags, arena);
     }
     else {
@@ -1296,11 +1324,23 @@ run_eval_code_obj(PyThreadState *tstate, PyCodeObject *co, PyObject *globals, Py
     return v;
 }
 
+/*
+1. 创建PyCodeObject对象。
+    - 先是scanner进行词法分析、将源代码切分成一个个的token
+    - 然后parser在词法分析之后的结果之上进行语法分析、通过切分好的token生成抽象语法树(AST，abstract syntax tree)
+    - 然后将AST编译PyCodeObject对象
+2. 执行PyCodeObject
+    - 获取builtins
+    - 传递locals，并获取globals
+    - 创建PyFrameObject
+    - 执行PyFrameObject
+*/
 static PyObject *
 run_mod(mod_ty mod, PyObject *filename, PyObject *globals, PyObject *locals,
             PyCompilerFlags *flags, PyArena *arena)
 {
     PyThreadState *tstate = _PyThreadState_GET();
+    //基于ast编译字节码指令序列，创建PyCodeObject对象
     PyCodeObject *co = _PyAST_Compile(mod, filename, flags, -1, arena);
     if (co == NULL)
         return NULL;
@@ -1309,7 +1349,7 @@ run_mod(mod_ty mod, PyObject *filename, PyObject *globals, PyObject *locals,
         Py_DECREF(co);
         return NULL;
     }
-
+    //执行PyCodeObject对象中的字节码指令序列
     PyObject *v = run_eval_code_obj(tstate, co, globals, locals);
     Py_DECREF(co);
     return v;

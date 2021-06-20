@@ -34,6 +34,10 @@ to avoid the expense of doing their own locking).
 extern "C" {
 #endif
 
+	
+/*
+tstate_current指的就是当前活动的OS线程对应的状态对象，同时也是获取到GIL的Python线程
+*/
 #define _PyRuntimeGILState_GetThreadState(gilstate) \
     ((PyThreadState*)_Py_atomic_load_relaxed(&(gilstate)->tstate_current))
 #define _PyRuntimeGILState_SetThreadState(gilstate, value) \
@@ -611,15 +615,17 @@ static PyThreadState *
 new_threadstate(PyInterpreterState *interp, int init)
 {
     _PyRuntimeState *runtime = interp->runtime;
+    //为线程状态对象申请内存
     PyThreadState *tstate = (PyThreadState *)PyMem_RawMalloc(sizeof(PyThreadState));
     if (tstate == NULL) {
         return NULL;
     }
-
+    //设置该线程所在的进程
     tstate->interp = interp;
 
-    tstate->frame = NULL;
-    tstate->recursion_depth = 0;
+    //下面就是设置内部的成员属性
+    tstate->frame = NULL;   //栈帧
+    tstate->recursion_depth = 0; //递归深度
     tstate->recursion_headroom = 0;
     tstate->stackcheck_counter = 0;
     tstate->tracing = 0;
@@ -627,7 +633,7 @@ new_threadstate(PyInterpreterState *interp, int init)
     tstate->cframe = &tstate->root_cframe;
     tstate->gilstate_counter = 0;
     tstate->async_exc = NULL;
-    tstate->thread_id = PyThread_get_thread_ident();
+    tstate->thread_id = PyThread_get_thread_ident();  //线程id
 
     tstate->dict = NULL;
 
@@ -665,20 +671,28 @@ new_threadstate(PyInterpreterState *interp, int init)
 
     HEAD_LOCK(runtime);
     tstate->id = ++interp->tstate_next_unique_id;
-    tstate->prev = NULL;
-    tstate->next = interp->tstate_head;
+    tstate->prev = NULL;  //上一个线程状态对象
+    tstate->next = interp->tstate_head; //当前线程状态对象的next, 我们看到指向了线程状态对象链表的头结点, 说明是头插法
     if (tstate->next)
+        //因为每个线程状态对象的prev指针都要指向它的上一个线程状态对象, 如果是头结点的话, 那么prev就指向NULL
+        //但由于新的线程状态对象在插入之后显然就变成了链表的头结点, 因此还需要将插入之间的头结点的prev指向新插入的线程状态对象
         tstate->next->prev = tstate;
+    //将tstate_head设置为新的线程状态对象(链表的头结点)
     interp->tstate_head = tstate;
     HEAD_UNLOCK(runtime);
-
+    //返回线程状态对象
     return tstate;
 }
 
-// 创建一个新的现成
+// 创建一个新的线程
 PyThreadState *
 PyThreadState_New(PyInterpreterState *interp)
 {
+    /*
+    我们注意到这个函数接收一个PyInterpreterState，说明了线程是依赖于进程的，因为需要进程分配资源，
+    而且这个函数又调用了new_threadstate，除了传递PyInterpreterState之外，还传了一个1，想也不用
+    想肯定是创建的线程数量，这里创建1个，也就是主线程(main thread)
+    */
     return new_threadstate(interp, 1);
 }
 
@@ -1021,15 +1035,17 @@ PyThreadState_Get(void)
 }
 
 
+// 将gil 交给一个指定的线程
 PyThreadState *
 _PyThreadState_Swap(struct _gilstate_runtime_state *gilstate, PyThreadState *newts)
 {
 #ifdef EXPERIMENTAL_ISOLATED_SUBINTERPRETERS
     PyThreadState *oldts = _PyThreadState_GetTSS();
 #else
+    //这里是获取当前的线程状态对象, 并且保证线程的安全性
     PyThreadState *oldts = _PyRuntimeGILState_GetThreadState(gilstate);
 #endif
-
+    //将GIL交给newts
     _PyRuntimeGILState_SetThreadState(gilstate, newts);
     /* It should not be possible for more than one thread state
        to be used for a thread.  Check this the best we can in debug
@@ -1041,6 +1057,7 @@ _PyThreadState_Swap(struct _gilstate_runtime_state *gilstate, PyThreadState *new
            to it, we need to ensure errno doesn't change.
         */
         int err = errno;
+        //通过&(gilstate)->tstate_current获取当前线程
         PyThreadState *check = _PyGILState_GetThisThreadState(gilstate);
         if (check && check->interp == newts->interp && check != newts)
             Py_FatalError("Invalid thread state for this thread");
@@ -1056,6 +1073,9 @@ _PyThreadState_Swap(struct _gilstate_runtime_state *gilstate, PyThreadState *new
 PyThreadState *
 PyThreadState_Swap(PyThreadState *newts)
 {
+    /*
+    将控制权交给传进来的线程
+    */
     return _PyThreadState_Swap(&_PyRuntime.gilstate, newts);
 }
 

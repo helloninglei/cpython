@@ -29,7 +29,7 @@ extern "C" {
 #endif
 
 /* --- pymain_init() ---------------------------------------------- */
-
+/*初始化函数*/
 static PyStatus
 pymain_init(const _PyArgv *args)
 {
@@ -313,7 +313,7 @@ pymain_run_file_obj(PyObject *program_name, PyObject *filename,
     if (PySys_Audit("cpython.run_file", "O", filename) < 0) {
         return pymain_exit_err_print();
     }
-
+    // 打开文件
     FILE *fp = _Py_fopen_obj(filename, "rb");
     if (fp == NULL) {
         // Ignore the OSError
@@ -357,11 +357,13 @@ pymain_run_file_obj(PyObject *program_name, PyObject *filename,
 static int
 pymain_run_file(const PyConfig *config)
 {
+    // 获取文件名
     PyObject *filename = PyUnicode_FromWideChar(config->run_filename, -1);
     if (filename == NULL) {
         PyErr_Print();
         return -1;
     }
+    // 获取程序名
     PyObject *program_name = PyUnicode_FromWideChar(config->program_name, -1);
     if (program_name == NULL) {
         Py_DECREF(filename);
@@ -529,10 +531,11 @@ pymain_repl(PyConfig *config, int *exitcode)
     *exitcode = (res != 0);
 }
 
-
+/*python 主函数*/
 static void
 pymain_run_python(int *exitcode)
 {
+    // 解释器初始化
     PyInterpreterState *interp = _PyInterpreterState_GET();
     /* pymain_run_stdin() modify the config */
     PyConfig *config = (PyConfig*)_PyInterpreterState_GetConfig(interp);
@@ -574,6 +577,7 @@ pymain_run_python(int *exitcode)
     pymain_header(config);
     pymain_import_readline(config);
 
+    // 多种运行方式
     if (config->run_command) {
         *exitcode = pymain_run_command(config->run_command);
     }
@@ -658,6 +662,7 @@ pymain_exit_error(PyStatus status)
 }
 
 
+/*python主函数*/
 int
 Py_RunMain(void)
 {
@@ -681,9 +686,11 @@ Py_RunMain(void)
 }
 
 
+/*启动函数*/
 static int
 pymain_main(_PyArgv *args)
 {
+    // 初始化/加载配置
     PyStatus status = pymain_init(args);
     if (_PyStatus_IS_EXIT(status)) {
         pymain_free();
@@ -692,7 +699,7 @@ pymain_main(_PyArgv *args)
     if (_PyStatus_EXCEPTION(status)) {
         pymain_exit_error(status);
     }
-
+    // 真正运行
     return Py_RunMain();
 }
 

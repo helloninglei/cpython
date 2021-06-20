@@ -20,7 +20,7 @@ struct _is;
 // 线程状态
 typedef struct _ts PyThreadState;
 /* struct _is is defined in internal/pycore_interp.h */
-// 解释器状态
+// 进程状态
 typedef struct _is PyInterpreterState;
 
 PyAPI_FUNC(PyInterpreterState *) PyInterpreterState_New(void);

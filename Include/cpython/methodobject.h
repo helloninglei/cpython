@@ -21,10 +21,14 @@ PyAPI_DATA(PyTypeObject) PyCMethod_Type;
          ((PyCMethodObject *)func) -> mm_class : NULL)
 
 typedef struct {
-    PyObject_HEAD
+    //头部信息
+    PyObject_HEAD 
     PyMethodDef *m_ml; /* Description of the C function to call */
+    //self参数
     PyObject    *m_self; /* Passed as 'self' arg to the C func, can be NULL */
+    //__module__属性
     PyObject    *m_module; /* The __module__ attribute, can be anything */
+    //弱引用列表
     PyObject    *m_weakreflist; /* List of weak references */
     vectorcallfunc vectorcall;
 } PyCFunctionObject;

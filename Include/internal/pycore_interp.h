@@ -219,9 +219,9 @@ struct type_cache {
 // The PyInterpreterState typedef is in Include/pystate.h.
 // 解释器状态结构体
 struct _is {
-
-    struct _is *next;
-    struct _ts *tstate_head;
+    //进程环境中的线程状态对象的集合, 我们说线程状态对象会形成一个链表
+    struct _is *next; //当前进程的下一个进程
+    struct _ts *tstate_head; //这里就是链表的头结点
 
     /* Reference to the _PyRuntime global variable. This field exists
        to not have to pass runtime in addition to tstate to a function.

@@ -744,6 +744,7 @@ pycore_init_builtins(PyThreadState *tstate)
     Py_DECREF(bimod);
 
     // Get the __import__ function
+    // 获取 __import__ 函数
     PyObject *import_func = _PyDict_GetItemStringWithError(interp->builtins,
                                                            "__import__");
     if (import_func == NULL) {
@@ -760,6 +761,12 @@ error:
 }
 
 
+/*
+GIL状态初始化
+类型系统初始化
+sys模块初始化
+内置模块初始化
+*/
 static PyStatus
 pycore_interp_init(PyThreadState *tstate)
 {
@@ -776,11 +783,12 @@ pycore_interp_init(PyThreadState *tstate)
     }
 
     // The GC must be initialized before the first GC collection.
+    // GIL状态初始化
     status = _PyGC_Init(interp);
     if (_PyStatus_EXCEPTION(status)) {
         return status;
     }
-
+    // 类型系统初始化
     status = pycore_init_types(interp);
     if (_PyStatus_EXCEPTION(status)) {
         goto done;
@@ -795,11 +803,13 @@ pycore_interp_init(PyThreadState *tstate)
         return status;
     }
 
+    // sys模块初始化
     status = _PySys_Create(tstate, &sysmod);
     if (_PyStatus_EXCEPTION(status)) {
         goto done;
     }
 
+    // 内置模块初始化
     status = pycore_init_builtins(tstate);
     if (_PyStatus_EXCEPTION(status)) {
         goto done;
@@ -972,6 +982,12 @@ _Py_PreInitializeFromConfig(const PyConfig *config,
  * to the Python C API (unless the API is explicitly listed as being
  * safe to call without calling Py_Initialize first)
  */
+/*
+创建第一个线程和解释器，但是编译器、信号处理、多线程和多解释器支持以及编解码器基础设施还不可用
+导入系统将只支持内置和冻结模块, 唯一受支持的io是写入sys.stderr
+如果此函数调用的任何操作失败，则会发出致命错误，并且函数不会返回。
+从该函数调用的任何代码都不应假定它有权访问pythonc c api（除非该API被明确列为在没有调用Initialize的情况下可以安全调用）
+*/
 static PyStatus
 pyinit_core(_PyRuntimeState *runtime,
             const PyConfig *src_config,
@@ -1028,6 +1044,17 @@ pyinit_main_reconfigure(PyThreadState *tstate)
 }
 
 
+/*
+init_importlib_external：初始化importlib模块
+init_sys_streams： 初始化标准输入/输出/错误模块
+init_set_builtins_open：初始化io.open模块
+add_main_module：
+    在此module中设置一个Python搜索module时的默认路径集合,我们知道最终Python肯定会创建一个PyListObject对象，
+    也就是Python中的sys.path，里面包含了一组PyUnicodeObject，每一个PyUnicodeObject的内容就代表了一个搜索路径。
+    但是这一步不是在这里完成的
+init_import_site: site是Python能正确加载位于site-packages目录下第三方包的关键所在。
+
+*/
 static PyStatus
 init_interp_main(PyThreadState *tstate)
 {
@@ -1852,12 +1879,36 @@ Py_Finalize(void)
    Locking: as above.
 
 */
+/*
+创建并初始化一个新的进程和线程
+定义程序执行状态 --> 运行状态初始化 --> 检查程序执行状态 --> 创建进程对象 --> 创建线程对象 --> 将控制权交给新创建的线程 --> 配置项传递给新的进程 --> 
+init_interp_create_gil --> 检查程序执行状态 --> 
+pycore_interp_init     --> 检查程序执行状态 -->
+init_interp_main       --> 检查程序执行状态
+
+init_interp_create_gil: 创建GIL
+pycore_interp_init: 必要模块初始化（GIL状态初始化, 类型系统初始化, sys模块初始化, 内置模块初始化）
+init_interp_main: 核心模块初始化 （importlib, io.open, sys.stdin/stdout/stderr等）
+
+在 Py_NewInterpreter 中调用 new_interpreter 函数，然后在 new_interpreter 这个函数里面：
+1. 通过 PyInterpreterState_New 创建 PyInterpreterState 
+2. 然后传递 PyInterpreterState 调用 PyThreadState_New 得到 PyThreadState 对象。
+3. 接着就是执行各种初始化动作
+    - 在 new_interpreter 中调用 _PyBuiltin_Init 设置内建属性，在代码的最后会设置大量的内置属性(函数、对象)。
+    - 调用 _PyModule_CreateInitialized 初始化一个module对象，还会在初始化之后将我们没有看到的一些属性（比如：dir、getattr）等等设置进去
+    - 在 _PyModule_CreateInitialized 里面，先是使用 PyModule_New 创建一个PyModuleObject，在里面设置了name和doc等属性之后，
+      再通过 PyModule_AddFunctions 设置methods，在这里面我们看到了dir、getattr等内置属性。
+      当这些属性设置完之后，退回到 _PyBuiltin_Init 函数中，
+    - 设置剩余的大量属性。之后，__builtins__就完成了。
+*/
 
 static PyStatus
 new_interpreter(PyThreadState **tstate_p, int isolated_subinterpreter)
 {
+    // 程序的执行状态，用于判断是否发生了异常
     PyStatus status;
 
+    // 运行状态初始化
     status = _PyRuntime_Initialize();
     if (_PyStatus_EXCEPTION(status)) {
         return status;
@@ -1872,12 +1923,13 @@ new_interpreter(PyThreadState **tstate_p, int isolated_subinterpreter)
        interpreters: disable PyGILState_Check(). */
     runtime->gilstate.check_enabled = 0;
 
+    // 创建进程对象
     PyInterpreterState *interp = PyInterpreterState_New();
     if (interp == NULL) {
         *tstate_p = NULL;
         return _PyStatus_OK();
     }
-
+    //根据进程对象创建一个线程对象, 维护对应OS线程的状态
     PyThreadState *tstate = PyThreadState_New(interp);
     if (tstate == NULL) {
         PyInterpreterState_Delete(interp);
@@ -1885,9 +1937,11 @@ new_interpreter(PyThreadState **tstate_p, int isolated_subinterpreter)
         return _PyStatus_OK();
     }
 
+    //将GIL的控制权交给创建的线程
     PyThreadState *save_tstate = PyThreadState_Swap(tstate);
 
     /* Copy the current interpreter config into the new interpreter */
+    // 将当前进程的配置项传递到新的进程
     const PyConfig *config;
 #ifndef EXPERIMENTAL_ISOLATED_SUBINTERPRETERS
     if (save_tstate != NULL) {
@@ -1939,6 +1993,7 @@ error:
     return status;
 }
 
+// 在Python启动之后，初始化的动作是从 Py_NewInterpreter 函数开始的，然后这个函数调用了 new_interpreter 函数完成初始化
 PyThreadState *
 _Py_NewInterpreter(int isolated_subinterpreter)
 {
@@ -1999,14 +2054,16 @@ Py_EndInterpreter(PyThreadState *tstate)
 
 /* Add the __main__ module */
 
+//会在此module中设置一个Python搜索module时的默认路径集合
 static PyStatus
 add_main_module(PyInterpreterState *interp)
 {
     PyObject *m, *d, *loader, *ann_dict;
+    //创建__main__ module，并将其插入到interp->modules中
     m = PyImport_AddModule("__main__");
     if (m == NULL)
         return _PyStatus_ERR("can't create __main__ module");
-
+    //获取__main__的属性字典
     d = PyModule_GetDict(m);
     ann_dict = PyDict_New();
     if ((ann_dict == NULL) ||
@@ -2014,7 +2071,7 @@ add_main_module(PyInterpreterState *interp)
         return _PyStatus_ERR("Failed to initialize __main__.__annotations__");
     }
     Py_DECREF(ann_dict);
-
+    //获取interp->modules中的__builtins__ module
     if (_PyDict_GetItemStringWithError(d, "__builtins__") == NULL) {
         if (PyErr_Occurred()) {
             return _PyStatus_ERR("Failed to test __main__.__builtins__");
@@ -2023,6 +2080,7 @@ add_main_module(PyInterpreterState *interp)
         if (bimod == NULL) {
             return _PyStatus_ERR("Failed to retrieve builtins module");
         }
+        //将("__builtins__", __builtins__)插入到__main__ module的dict中
         if (PyDict_SetItemString(d, "__builtins__", bimod) < 0) {
             return _PyStatus_ERR("Failed to initialize __main__.__builtins__");
         }
@@ -2054,7 +2112,10 @@ add_main_module(PyInterpreterState *interp)
 }
 
 /* Import the site module (not into __main__ though) */
-
+/*
+site是Python能正确加载位于site-packages目录下第三方包的关键所在。
+site模块将site-packages目录加入到了前面的sys.path中，这个动作是由 init_import_size 完成的。
+*/
 static PyStatus
 init_import_site(void)
 {
@@ -2533,6 +2594,9 @@ fatal_error_exit(int status)
 // This function is called by a signal handler in faulthandler: avoid memory
 // allocations and keep the implementation simple. For example, the list is not
 // sorted on purpose.
+/*
+
+*/
 void
 _Py_DumpExtensionModules(int fd, PyInterpreterState *interp)
 {

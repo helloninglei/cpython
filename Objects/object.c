@@ -1789,6 +1789,7 @@ PyObject _Py_NotImplementedStruct = {
     1, &_PyNotImplemented_Type
 };
 
+// 初始化类型系统
 PyStatus
 _PyTypes_Init(void)
 {

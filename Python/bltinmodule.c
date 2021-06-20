@@ -2913,6 +2913,7 @@ PyTypeObject PyZip_Type = {
 };
 
 
+/*内置方法*/
 static PyMethodDef builtin_methods[] = {
     {"__build_class__", (PyCFunction)(void(*)(void))builtin___build_class__,
      METH_FASTCALL | METH_KEYWORDS, build_class_doc},
@@ -2980,6 +2981,11 @@ static struct PyModuleDef builtinsmodule = {
 };
 
 
+/* 
+内置模块初始化
+1. 通过_PyModule_CreateInitialized函数创建PyModuleObject对象，这是Python中模块对象的底层实现
+2. 设置module，将python中所有的内建对象都塞到__builtins__中
+*/
 PyObject *
 _PyBuiltin_Init(PyInterpreterState *interp)
 {
@@ -2991,7 +2997,10 @@ _PyBuiltin_Init(PyInterpreterState *interp)
         PyType_Ready(&PyMap_Type) < 0 ||
         PyType_Ready(&PyZip_Type) < 0)
         return NULL;
-
+    /*
+    通过_PyModule_CreateInitialized函数创建PyModuleObject对象，这是Python中模块对象的底层实现;
+    初始化所有在builtinsmodule对象中的builtin_methods，都会被添加到新创建的模块对象
+    */
     mod = _PyModule_CreateInitialized(&builtinsmodule, PYTHON_API_VERSION);
     if (mod == NULL)
         return NULL;
@@ -3009,6 +3018,7 @@ _PyBuiltin_Init(PyInterpreterState *interp)
 #define ADD_TO_ALL(OBJECT) (void)0
 #endif
 
+//设置module，将python中所有的内建对象都塞到__builtins__中
 #define SETBUILTIN(NAME, OBJECT) \
     if (PyDict_SetItemString(dict, NAME, (PyObject *)OBJECT) < 0)       \
         return NULL;                                                    \

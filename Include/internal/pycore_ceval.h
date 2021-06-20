@@ -40,6 +40,7 @@ extern PyObject *_PyEval_BuiltinsFromGlobals(
     PyObject *globals);
 
 
+// python最终的执行逻辑，所有的代码运行最终都是通过_PyEval_EvalFrame执行
 static inline PyObject*
 _PyEval_EvalFrame(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 {

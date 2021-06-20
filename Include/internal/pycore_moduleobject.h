@@ -9,13 +9,13 @@ extern "C" {
 #endif
 
 typedef struct {
-    PyObject_HEAD
-    PyObject *md_dict;
-    struct PyModuleDef *md_def;
+    PyObject_HEAD //头部信息
+    PyObject *md_dict; //属性字典, 所有的属性和值都在里面
+    struct PyModuleDef *md_def; //module对象包含的操作集合, 里面是一些结构体, 每个结构体包含一个函数的相关信息
     void *md_state;
     PyObject *md_weaklist;
     // for logging purposes after md_dict is cleared
-    PyObject *md_name;
+    PyObject *md_name; //模块名
 } PyModuleObject;
 
 static inline PyModuleDef* _PyModule_GetDef(PyObject *mod) {

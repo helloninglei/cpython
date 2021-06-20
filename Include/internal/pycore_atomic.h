@@ -549,7 +549,11 @@ typedef struct _Py_atomic_int {
     _Py_atomic_load_explicit((ATOMIC_VAL), _Py_memory_order_seq_cst)
 
 /* Python-local extensions */
-
+/*
+_Py_atomic_load_relaxed用到了_Py_atomic_load_explicit, _Py_atomic_load_explicit用到了atomic_load_explicit
+_Py_atomic_store_relaxed用到了_Py_atomic_store_explicit, _Py_atomic_store_explicit用到了atomic_store_explicit
+atomic_load_explicit和atomic_store_explicit是系统头文件stdatomic.h中定义的api，这是在系统的api中修改的，所以说是线程安全的
+*/
 #define _Py_atomic_store_relaxed(ATOMIC_VAL, NEW_VAL) \
     _Py_atomic_store_explicit((ATOMIC_VAL), (NEW_VAL), _Py_memory_order_relaxed)
 #define _Py_atomic_load_relaxed(ATOMIC_VAL) \

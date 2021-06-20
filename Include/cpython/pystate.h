@@ -63,13 +63,14 @@ typedef struct _err_stackitem {
 struct _ts {
     /* See Python/ceval.c for comments explaining most fields */
 
-    struct _ts *prev;
-    struct _ts *next;
-    PyInterpreterState *interp;
+    //多个线程状态对象也像链表一样串起来, 因为一个进程里面是可以包含多个线程的
+    struct _ts *prev; //prev指向上一个线程状态对象
+    struct _ts *next; //指向下一个线程状态对象
+    PyInterpreterState *interp; //进程状态对象, 标识对应的线程是属于哪一个进程的
 
     /* Borrowed reference to the current frame (it can be NULL) */
-    PyFrameObject *frame;
-    int recursion_depth;
+    PyFrameObject *frame;  //栈帧对象, 模拟线程中函数的调用堆栈
+    int recursion_depth;  //递归深度
     int recursion_headroom; /* Allow 50 more calls to handle any errors. */
     int stackcheck_counter;
 
@@ -146,7 +147,7 @@ struct _ts {
     uint64_t context_ver;
 
     /* Unique thread state id. */
-    uint64_t id;
+    uint64_t id;  //线程id
 
     CFrame root_cframe;
 
