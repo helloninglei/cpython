@@ -1090,9 +1090,11 @@ thread_run(void *boot_raw)
     tstate = boot->tstate;
     tstate->thread_id = PyThread_get_thread_ident();
     _PyThreadState_Init(tstate);
+    //争取gil
     PyEval_AcquireThread(tstate);
+    //进程内部的线程数量+1
     tstate->interp->num_threads++;
-
+    //执行字节码
     PyObject *res = PyObject_Call(boot->func, boot->args, boot->kwargs);
     if (res == NULL) {
         if (PyErr_ExceptionMatches(PyExc_SystemExit))
@@ -1114,25 +1116,35 @@ thread_run(void *boot_raw)
     PyThread_exit_thread();
 }
 
+/*
+创建新的线程：虚拟机通过三个主要的动作完成一个线程的创建。
+1. 创建并初始化bootstate结构体实例对象boot，在boot中，会保存一些相关信息
+2. 初始化Python的多线程环境
+3. 以boot为参数，创建子线程，子线程也会对应操作系统的原生线程
+*/ 
 static PyObject *
 thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
 {
     _PyRuntimeState *runtime = &_PyRuntime;
     PyObject *func, *args, *kwargs = NULL;
 
+    //参数检测逻辑, thread.Thread()里面我们一般传递target、args、kwargs
     if (!PyArg_UnpackTuple(fargs, "start_new_thread", 2, 3,
                            &func, &args, &kwargs))
         return NULL;
+    //target必须可调用
     if (!PyCallable_Check(func)) {
         PyErr_SetString(PyExc_TypeError,
                         "first arg must be callable");
         return NULL;
     }
+    //args是个元组
     if (!PyTuple_Check(args)) {
         PyErr_SetString(PyExc_TypeError,
                         "2nd arg must be a tuple");
         return NULL;
     }
+     //kwargs是个字典
     if (kwargs != NULL && !PyDict_Check(kwargs)) {
         PyErr_SetString(PyExc_TypeError,
                         "optional 3rd arg must be a dictionary");
@@ -1146,6 +1158,17 @@ thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
         return NULL;
     }
 
+	
+    //创建bootstate结构体实例
+    /*
+    struct bootstate {
+        PyInterpreterState *interp;
+        PyObject *func;
+        PyObject *args;
+        PyObject *keyw;
+        PyThreadState *tstate;
+    };    
+    */
     struct bootstate *boot = PyMem_NEW(struct bootstate, 1);
     if (boot == NULL) {
         return PyErr_NoMemory();
@@ -1161,6 +1184,7 @@ thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
     boot->args = Py_NewRef(args);
     boot->kwargs = Py_XNewRef(kwargs);
 
+    //创建线程, 返回id
     unsigned long ident = PyThread_start_new_thread(thread_run, (void*) boot);
     if (ident == PYTHREAD_INVALID_THREAD_ID) {
         PyErr_SetString(ThreadError, "can't start new thread");
@@ -1550,6 +1574,7 @@ PyDoc_STRVAR(excepthook_doc,
 \n\
 Handle uncaught Thread.run() exception.");
 
+// 线程的方法列表
 static PyMethodDef thread_methods[] = {
     {"start_new_thread",        (PyCFunction)thread_PyThread_start_new_thread,
      METH_VARARGS, start_new_doc},

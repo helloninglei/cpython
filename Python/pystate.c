@@ -665,6 +665,7 @@ new_threadstate(PyInterpreterState *interp, int init)
     tstate->context = NULL;
     tstate->context_ver = 1;
 
+    //这一步_PyThreadState_Init就表示将线程对应的线程对象放入到"线程状态对象链表"当中
     if (init) {
         _PyThreadState_Init(tstate);
     }

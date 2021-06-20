@@ -18,7 +18,7 @@ struct _ceval_runtime_state {
        bpo-40513). Any thread of any interpreter can receive a signal, but only
        the main thread of the main interpreter can handle signals: see
        _Py_ThreadCanHandleSignals(). */
-    _Py_atomic_int signals_pending;
+    _Py_atomic_int signals_pending; //信号检测相关
 #ifndef EXPERIMENTAL_ISOLATED_SUBINTERPRETERS
     struct _gil_runtime_state gil;
 #endif
